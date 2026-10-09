@@ -131,6 +131,12 @@ h3{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
 
 
 
+/* budget */
+.mbar{display:block;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-top:7px}
+.mbar i{display:block;height:100%;background:var(--teal);border-radius:3px}
+.mbar i.warn{background:var(--amber)}
+.mbar i.over{background:var(--bad)}
+.item.cur .t1::after{content:" · this month";font-weight:500;color:var(--mute);font-size:12px}
 /* left menu */
 .hl{display:flex;align-items:center;gap:10px;min-width:0}
 #drawer{position:fixed;inset:0;z-index:45}
@@ -257,7 +263,7 @@ var GENDERS=["Female","Male","Other"];
 var SB_URL="https://enpwvgtgavtfnbhapdcf.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucHd2Z3RnYXZ0Zm5iaGFwZGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTQyODMsImV4cCI6MjEwMDkzMDI4M30.VfngBOGGaPe1iPTc82jD-_C23_b7dfi1vXjDpPcB28s";
 var sb=null;
-var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
+var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
 function isMgr(){return S.role==="admin"||S.role==="manager"}
 function isAdmin(){return S.role==="admin"}
 function roleName(r){return r==="admin"?"Admin":r==="manager"?"Manager":"Staff"}
@@ -282,6 +288,7 @@ var ICON={
   close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.500l2.800 2.800L16 9.500"/></svg>',
   file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+  plan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.500" y="5" width="17" height="15" rx="2"/><path d="M3.500 10h17M8 3v4M16 3v4M8 15l2.500 2.500L16 13"/></svg>',
   user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6 8-6s7.200 2 8 6"/></svg>',
   out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10"/></svg>',
   down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>'
@@ -313,6 +320,7 @@ async function loadAll(quiet){
       S.workers=r[0].data.map(wFromRow);
       S.members=r[2].data.map(mFromRow);
       S.allExp=r[1].data.map(eFromRow);
+      try{var rb=await sb.from("hk_budgets").select("*").limit(2000);S.budgets=rb.error?[]:rb.data.map(function(x){return {id:x.id,month:x.month,category:x.category,amount:Number(x.amount)}})}catch(eb){S.budgets=[]}
     }else{
       var r2=await Promise.all([sb.rpc("hk_roster"),ex]);
       for(var j=0;j<r2.length;j++)if(r2[j].error)throw r2[j].error;
@@ -367,7 +375,7 @@ function renderDrawer(){
     secs=[
       ["Dashboard",[T(ICON.home,"Overview","overview")]],
       ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll")]],
-      ["Finance",[T(ICON.cash,"Expenses","expenses"),drItem(ICON.plus,"Add expense","addexp"),drItem(ICON.cash,"Pay salary","paysal"),T(ICON.check,"Approvals","approvals",pn),T(ICON.chart,"Analytics","analytics")]],
+      ["Finance",[T(ICON.cash,"Expenses","expenses"),drItem(ICON.plus,"Add expense","addexp"),drItem(ICON.cash,"Pay salary","paysal"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
       ["Assignments",[T(ICON.file,"Files from staff","files",nNew)]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isAdmin()?[drItem(ICON.people,"Team members","team")]:[]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
@@ -403,6 +411,9 @@ function vOverview(){
     '<div class="fig"><small>Monthly pay of active staff</small><strong>'+fmt(wage)+"</strong><em>from worker profiles</em></div></div></div>";
   var pn0=pendingList();
   if(pn0.length)h+='<div class="list" style="margin-top:14px"><button class="item" data-act="tab" data-v="approvals"><span class="grow"><span class="t1" style="display:block">'+pn0.length+(pn0.length===1?" expense":" expenses")+' waiting for your approval</span><span class="t2" style="display:block">Tap to review</span></span><span class="amt">'+fmt(sum(pn0,function(e){return e.amount}))+"</span></button></div>";
+  var bm=thisMonth();
+  if(bHas(bm)){var bp=bPlan(bm),bs=spentIn(bm),bpc=bp>0?Math.round(bs/bp*100):(bs>0?100:0);
+    h+='<div class="list" style="margin-top:14px"><button class="item" data-act="tab" data-v="budget"><span class="grow"><span class="t1" style="display:block">'+esc(mlabel(bm).split(" ")[0])+' budget · '+bpc+'% used</span><span class="t2" style="display:block">'+esc("Spent "+fmt(bs)+" of "+fmt(bp))+'</span><span class="mbar"><i class="'+(bs>bp?"over":bpc>=90?"warn":"")+'" style="width:'+Math.min(100,bpc)+'%"></i></span></span><span class="pill '+(bs>bp?"bad":"ok")+'">'+(bs>bp?"Over "+nf(bs-bp):"Left "+nf(bp-bs))+"</span></button></div>";}
   var ns0=S.subs.filter(function(x){return x.status==="new"});
   if(ns0.length)h+='<div class="list" style="margin-top:14px"><button class="item" data-act="tab" data-v="files"><span class="grow"><span class="t1" style="display:block">'+ns0.length+(ns0.length===1?" new assignment file":" new assignment files")+' from staff</span><span class="t2" style="display:block">Tap to open</span></span><span class="ftype">'+ICON.file.replace("<svg ",'<svg width="20" height="20" ')+"</span></button></div>";
   if(canAdd())h+='<div class="acts" style="margin-top:14px"><button class="btn pri" data-act="addexp">'+ICON.plus+'Add expense</button><button class="btn pri" data-act="paysal">'+ICON.plus+'Pay salary</button><button class="btn" data-act="enroll">'+ICON.plus+"Enroll worker</button></div>";
@@ -578,7 +589,7 @@ function vStaff0(){
 function render(){
   var m=document.getElementById("main");
   var f=document.activeElement,keep=f&&f.id==="q"?f.selectionStart:null;
-  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="analytics"?vAnalytics():vOverview();
+  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
   renderNav();renderTop();
   if(keep!==null){var q=document.getElementById("q");if(q){q.focus();try{q.setSelectionRange(keep,keep)}catch(e){}}}
 }
@@ -815,7 +826,7 @@ function startPoll(){
 async function signOut(){
   clearInterval(pollT);
   try{await sb.auth.signOut()}catch(e){}
-  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
+  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
   showAuth("in");
 }
 
@@ -1172,6 +1183,107 @@ async function saveSalary(f){
   if(back)openWorker(back);
 }
 
+/* ---------- budget plan ---------- */
+var TOTALCAT="Total";
+function bRows(m){return S.budgets.filter(function(x){return x.month===m})}
+function bHas(m){return bRows(m).length>0}
+function bCat(m,c){var r=bRows(m).filter(function(x){return x.category===c})[0];return r?r.amount:null}
+function bPlan(m){var t=bCat(m,TOTALCAT);return t!==null?t:sum(bRows(m),function(x){return x.amount})}
+function spentIn(m,cat){return sum(S.expenses.filter(function(e){return e.date&&e.date.slice(0,7)===m&&(!cat||e.category===cat)}),function(e){return e.amount})}
+function bYear(){return S.byear||thisMonth().slice(0,4)}
+function bYears(){
+  var y={};y[thisMonth().slice(0,4)]=1;y[String(Number(thisMonth().slice(0,4))+1)]=1;
+  S.budgets.forEach(function(x){y[x.month.slice(0,4)]=1});S.expenses.forEach(function(e){if(e.date)y[e.date.slice(0,4)]=1});
+  return Object.keys(y).sort();
+}
+function bMonths(y){var a=[];for(var i=1;i<=12;i++)a.push(y+"-"+String(i).padStart(2,"0"));return a}
+function bRow(m){
+  var p=bPlan(m),sp=spentIn(m),has=bHas(m),pc=p>0?Math.round(sp/p*100):(sp>0?100:0);
+  var pill=has?(sp>p?'<span class="pill bad">Over '+nf(sp-p)+"</span>":'<span class="pill ok">Left '+nf(p-sp)+"</span>"):'<span class="pill mute">Set plan</span>';
+  return '<button class="item'+(m===thisMonth()?" cur":"")+'" data-act="openb" data-m="'+m+'"><span class="grow"><span class="t1" style="display:block">'+esc(mlabel(m).split(" ")[0])+'</span><span class="t2" style="display:block">'+esc((has?"Plan "+fmt(p)+" · ":"No plan yet · ")+"Spent "+fmt(sp))+"</span>"+(has?'<span class="mbar"><i class="'+(sp>p?"over":pc>=90?"warn":"")+'" style="width:'+Math.min(100,pc)+'%"></i></span>':"")+"</span>"+pill+"</button>";
+}
+function vBudget(){
+  var y=bYear(),ms=bMonths(y);
+  var planY=sum(ms,bPlan),spentY=sum(ms,function(m){return spentIn(m)}),left=planY-spentY;
+  var h='<div class="row-h"><h2>Budget plan</h2><span style="display:flex;gap:8px"><button class="btn sm" data-act="pdfb">'+ICON.down+'PDF</button><button class="btn sm" data-act="csvb">'+ICON.down+"CSV</button></span></div>";
+  h+='<div class="controls" style="margin-top:12px"><select class="select" id="by" aria-label="Year">'+bYears().map(function(v){return "<option"+(v===y?" selected":"")+">"+v+"</option>"}).join("")+"</select></div>";
+  h+='<div class="sec" style="margin-top:14px"><div class="figs">'+
+    '<div class="fig"><small>Planned</small><strong>'+fmt(planY)+"</strong><em>"+y+"</em></div>"+
+    '<div class="fig"><small>Spent</small><strong>'+fmt(spentY)+"</strong><em>"+(planY>0?Math.round(spentY/planY*100)+"% of plan":"approved only")+"</em></div>"+
+    '<div class="fig"><small>'+(left<0?"Over plan":"Left")+"</small><strong>"+fmt(Math.abs(left))+"</strong><em>"+(planY>0?(left<0?"overspent":"still to spend"):"no plan set")+"</em></div></div></div>";
+  h+='<div class="sec"><span class="note">Tap a month to set the amount you plan to spend. Spending counts approved expenses and salaries.</span><div class="list">'+ms.map(bRow).join("")+"</div></div>";
+  return h;
+}
+function bSum(f){
+  var n=document.getElementById("bsum");if(!n)return;
+  var tot=f.elements.btotal.value.trim(),c=0;
+  [].slice.call(f.querySelectorAll("[data-cat]")).forEach(function(el){c+=Number(el.value)||0});
+  var t=tot===""?null:Number(tot);
+  n.textContent=c>0?"Categories add up to "+fmt(c)+(t!==null?(c>t?", which is more than the total of "+fmt(t)+".":" of the total "+fmt(t)+"."):". The total will be set to this amount."):"";
+}
+function openBudget(m){
+  var sp=spentIn(m),tot=bCat(m,TOTALCAT);
+  var cats=CATS.map(function(c,i){
+    var v=bCat(m,c),cs=spentIn(m,c);
+    return '<div class="fld"><label for="b_'+i+'">'+esc(c)+' <span class="wno">spent '+nf(cs)+"</span></label>"+'<input class="input" id="b_'+i+'" data-cat="'+esc(c)+'" type="number" min="0" step="any" inputmode="decimal" value="'+(v===null?"":esc(v))+'"></div>';
+  });
+  var pairs="";for(var i=0;i<cats.length;i+=2)pairs+='<div class="grid2">'+cats[i]+(cats[i+1]||"")+"</div>";
+  var later=bMonths(m.slice(0,4)).filter(function(x){return x>m});
+  var h=kv([["Spent so far",fmt(sp),1]])+'<form id="bform" data-m="'+m+'" novalidate><fieldset>'+
+    fld("Planned total for "+mlabel(m)+" (KES)","btotal","number",tot===null?"":tot,{mode:"decimal",ph:"e.g. 250000"})+
+    '<div class="note" id="bsum"></div><h3 style="margin:8px 0 0">By category (optional)</h3>'+pairs+"</fieldset>"+
+    '<div class="acts" style="margin-top:20px"><button class="btn pri" type="submit">Save plan</button>'+
+    (bHas(m)&&later.length?'<button class="btn" type="button" data-act="bcopy" data-m="'+m+'">Copy to later months</button>':"")+
+    '<button class="btn" type="button" data-act="close">Cancel</button></div></form>'+
+    '<p class="note">Leave a box empty to have no plan for it. Empty boxes everywhere remove the plan for this month.</p>';
+  openSheet("Budget · "+mlabel(m),h);S.sheet={t:"bud",m:m};
+  bSum(document.getElementById("bform"));
+}
+async function saveBudget(f){
+  var m=f.dataset.m,rows=[],del=[],bad=false;
+  function num(el){var v=el.value.trim();if(v==="")return null;var n=Number(v);if(!(n>=0)){bad=true;return null}return n}
+  var t=num(f.elements.btotal);
+  if(t!==null)rows.push({month:m,category:TOTALCAT,amount:t});else del.push(TOTALCAT);
+  [].slice.call(f.querySelectorAll("[data-cat]")).forEach(function(el){var v=num(el);if(v!==null)rows.push({month:m,category:el.dataset.cat,amount:v});else del.push(el.dataset.cat)});
+  if(bad){toast("Amounts must be numbers, zero or more.");return}
+  var btn=f.querySelector('[type="submit"]');btn.disabled=true;
+  if(rows.length){var u=await sb.from("hk_budgets").upsert(rows,{onConflict:"month,category"});if(u.error){toast(dbErr(u.error));btn.disabled=false;return}}
+  if(del.length){var d=await sb.from("hk_budgets").delete().eq("month",m).in("category",del);if(d.error){toast(dbErr(d.error));btn.disabled=false;return}}
+  closeSheet();toast(rows.length?"Budget saved for "+mlabel(m)+".":"Plan removed for "+mlabel(m)+".");
+  await loadAll();render();
+}
+async function copyBudget(m){
+  var src=bRows(m),later=bMonths(m.slice(0,4)).filter(function(x){return x>m});
+  if(!src.length||!later.length)return;
+  var d=await sb.from("hk_budgets").delete().in("month",later);if(d.error){toast(dbErr(d.error));return}
+  var rows=[];later.forEach(function(x){src.forEach(function(r){rows.push({month:x,category:r.category,amount:r.amount})})});
+  var u=await sb.from("hk_budgets").insert(rows);if(u.error){toast(dbErr(u.error));return}
+  closeSheet();toast("Plan copied to "+later.length+(later.length===1?" later month.":" later months."));
+  await loadAll();render();
+}
+function budgetTable(y){
+  var ms=bMonths(y);
+  return ms.map(function(m){var p=bPlan(m),sp=spentIn(m),has=bHas(m);return [mlabel(m),has?p:"",sp,has?p-sp:"",has&&p>0?Math.round(sp/p*100):""]});
+}
+function exportBudget(){
+  var y=bYear();
+  exportCsv("hawkeye-budget-"+y+".csv",["Month","Planned (KES)","Spent (KES)","Left (negative = over)","Percent used"],budgetTable(y));
+}
+async function downloadBudgetPdf(){
+  if(!guard())return;
+  var y=bYear(),ms=bMonths(y),doc=newDoc();
+  var yy=secStart(doc,true,"Budget plan "+y,"Planned against actual spending");
+  var body=budgetTable(y).map(function(r){return [r[0],r[1]===""?"-":nf(r[1]),nf(r[2]),r[3]===""?"-":nf(r[3]),r[4]===""?"-":r[4]+"%"]});
+  var P=sum(ms,bPlan),Sp=sum(ms,function(m){return spentIn(m)});
+  yy=tbl(doc,yy,["Month","Planned (KES)","Spent (KES)","Left (minus = over)","Used"],body,["Total "+y,nf(P),nf(Sp),P>0?nf(P-Sp):"-",P>0?Math.round(Sp/P*100)+"%":"-"],[1,2,3,4]);
+  var crow=CATS.map(function(c){var pl=sum(ms,function(m){var v=bCat(m,c);return v===null?0:v}),sp=sum(ms,function(m){return spentIn(m,c)});return [c,pl,sp]}).filter(function(r){return r[1]>0||r[2]>0});
+  if(crow.some(function(r){return r[1]>0})){
+    doc.setFont("helvetica","bold");doc.setFontSize(12);doc.setTextColor(18,21,18);doc.text("By category, "+y,40,yy+28);
+    tbl(doc,yy+36,["Category","Planned (KES)","Spent (KES)","Left (minus = over)"],crow.map(function(r){return [r[0],r[1]>0?nf(r[1]):"-",nf(r[2]),r[1]>0?nf(r[1]-r[2]):"-"]}),null,[1,2,3]);
+  }
+  await savePdf(doc,"hawkeye-budget-"+y+".pdf");
+}
+
 /* ---------- events ---------- */
 document.addEventListener("click",function(ev){
   var t=ev.target.closest("[data-act]");if(!t)return;
@@ -1182,6 +1294,13 @@ document.addEventListener("click",function(ev){
   if(a==="veil"){if(ev.target===t)closeSheet();return}
   if(a==="close"){closeSheet();return}
   if(a==="tab"){closeSheet();S.tab=t.dataset.v;render();window.scrollTo(0,0);return}
+  if(a==="openb"){openBudget(t.dataset.m);return}
+  if(a==="bcopy"){
+    if(!S.confirm){S.confirm=true;t.textContent="Tap again to overwrite later months";return}
+    copyBudget(t.dataset.m);return;
+  }
+  if(a==="pdfb"){downloadBudgetPdf();return}
+  if(a==="csvb"){exportBudget();return}
   if(a==="stab"){S.stab=t.dataset.v;render();window.scrollTo(0,0);return}
   if(a==="subnew"){openSubmit();return}
   if(a==="opens"){openSub(id);return}
@@ -1238,6 +1357,7 @@ document.addEventListener("submit",async function(ev){
   else if(f.id==="eform")saveExpense(f);
   else if(f.id==="sform")saveSubmission(f);
   else if(f.id==="salform")saveSalary(f);
+  else if(f.id==="bform")saveBudget(f);
   else if(f.id==="revform"){btn.disabled=true;var rid=f.dataset.id;var okr=await setReview(rid,"reviewed",formData(f).rnote);if(okr){toast("Marked as reviewed.");openSub(rid)}else btn.disabled=false}
   else if(f.id==="fsignin"){
     var o=formData(f);if(!o.email||!o.password){authMsg("Enter your email and password.");return}
@@ -1298,7 +1418,7 @@ document.addEventListener("submit",async function(ev){
     showCreds(mm.name,mm.email,pw,"Password reset");
   }
 });
-document.addEventListener("input",function(ev){if(ev.target.id==="q"){S.q=ev.target.value;render()}});
+document.addEventListener("input",function(ev){if(ev.target.id==="q"){S.q=ev.target.value;render()}var bf=ev.target.closest&&ev.target.closest("#bform");if(bf)bSum(bf)});
 document.addEventListener("change",function(ev){
   var i=ev.target.id;
   if(i==="wst"){S.wstatus=ev.target.value;render()}
@@ -1311,6 +1431,7 @@ document.addEventListener("change",function(ev){
       if(i==="f_sw"){var sw=byId(S.workers,ev.target.value);if(sw){sf.elements.amount.value=sw.pay||"";if(sw.payMethod&&METHODS.indexOf(sw.payMethod)>=0)sf.elements.method.value=sw.payMethod}}
       salNote()}
   }
+  if(i==="by"){S.byear=ev.target.value;render()}
   if(i==="sf"){S.sfilter=ev.target.value;render()}
   if(i==="sm"){S.smem=ev.target.value;render()}
 });
