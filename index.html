@@ -773,7 +773,11 @@ function renderAuth(){
   var b=document.getElementById("authbody");
   var link=S.authMode==="in"?(S.setupDone===false?'<button class="linkbtn" data-act="authmode" data-v="setup">First time? Set up Hawkeye</button>':""):'<button class="linkbtn" data-act="authmode" data-v="in">Back to sign in</button>';
   if(S.authMode==="in")
-    b.innerHTML='<form id="fsignin" class="auth-box" novalidate><div class="fld"><label for="a_em">Email</label><input class="input" id="a_em" name="email" type="email" autocomplete="username" autocapitalize="off"></div><div class="fld"><label for="a_pw">Password</label><input class="input" id="a_pw" name="password" type="password" autocomplete="current-password"></div><div class="err" id="autherr" role="alert"></div><button class="btn pri" type="submit">Sign in</button></form>'+link;
+    b.innerHTML='<form id="fsignin" class="auth-box" novalidate><div class="fld"><label for="a_em">Email</label><input class="input" id="a_em" name="email" type="email" autocomplete="username" autocapitalize="off"></div><div class="fld"><label for="a_pw">Password</label><input class="input" id="a_pw" name="password" type="password" autocomplete="current-password"></div><div class="err" id="autherr" role="alert"></div><button class="btn pri" type="submit">Sign in</button></form><button class="linkbtn" data-act="authmode" data-v="forgot">Forgot password?</button>'+link;
+  else if(S.authMode==="forgot")
+    b.innerHTML='<form id="fforgot" class="auth-box" novalidate><b>Forgot your password?</b><span class="note">Enter the email you sign in with. We will email you a code to set a new password.</span><div class="fld"><label for="f_fem">Email</label><input class="input" id="f_fem" name="email" type="email" autocomplete="username" autocapitalize="off" value="'+esc(S.resetEmail||"")+'"></div><div class="err" id="autherr" role="alert"></div><button class="btn pri" type="submit">Send code</button></form>'+(S.resetEmail?'<button class="linkbtn" data-act="authmode" data-v="reset">I already have a code</button>':"")+link;
+  else if(S.authMode==="reset")
+    b.innerHTML='<form id="freset" class="auth-box" novalidate><b>Set a new password</b><span class="note">If '+esc(S.resetEmail||"that email")+' belongs to a Hawkeye member, a code was sent. Check your inbox and spam folder. The code works for 1 hour.</span><div class="fld"><label for="r_code">Code from the email</label><input class="input" id="r_code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div><div class="fld"><label for="r_pw">New password (8 or more characters)</label><input class="input" id="r_pw" name="password" type="password" autocomplete="new-password"></div><div class="fld"><label for="r_pw2">Type it again</label><input class="input" id="r_pw2" name="password2" type="password" autocomplete="new-password"></div><div class="err" id="autherr" role="alert"></div><button class="btn pri" type="submit">Save new password</button></form><button class="linkbtn" data-act="authmode" data-v="forgot">Send a new code</button>'+link;
   else if(S.authMode==="noaccess")
     b.innerHTML='<div class="auth-box"><b>No access yet</b><span class="note">'+esc(S.noAccessEmail||"")+' is not a Hawkeye member, or has been deactivated. Ask an admin to add you.</span><button class="btn" data-act="signout">Sign out</button></div>';
   else
@@ -1219,7 +1223,7 @@ document.addEventListener("click",function(ev){
   if(a==="genrpw"){document.getElementById("f_rpw").value=genPw();return}
   if(a==="toggleactive"){var m=byId(S.members,id);if(!m)return;sb.from("hk_members").update({active:!m.active}).eq("user_id",id).then(function(r){if(r.error){toast(dbErr(r.error));return}toast(m.active?"Deactivated.":"Activated.");loadAll().then(function(){render();openMember(id)})});return}
   if(a==="copycreds"){var txt=t.dataset.v;(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast("Copied.")}).catch(function(){toast("Copy did not work. Select the text and copy it.")});return}
-  if(a==="authmode"){S.authMode=t.dataset.v;renderAuth();return}
+  if(a==="authmode"){var ae=document.getElementById("a_em")||document.getElementById("f_fem");if(ae&&ae.value&&t.dataset.v==="forgot"&&!S.resetEmail)S.resetEmail=ae.value.trim().toLowerCase();S.authMode=t.dataset.v;renderAuth();return}
   if(a==="signout"){signOut();return}
   if(a==="pdf"){downloadReport(t.dataset.r);return}
   if(a==="pdfe"){downloadExpensesView();return}
@@ -1238,6 +1242,27 @@ document.addEventListener("submit",async function(ev){
   else if(f.id==="fsignin"){
     var o=formData(f);if(!o.email||!o.password){authMsg("Enter your email and password.");return}
     btn.disabled=true;authMsg("");var ok=await doSignIn(o.email,o.password);if(!ok&&btn)btn.disabled=false;
+  }
+  else if(f.id==="fforgot"){
+    var fe=formData(f).email.toLowerCase();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fe)){authMsg("Enter a valid email address.");return}
+    btn.disabled=true;btn.textContent="Sending…";authMsg("");
+    var rf=await callFn({action:"request_reset",email:fe});
+    if(rf.error){authMsg(rf.error);btn.disabled=false;btn.textContent="Send code";return}
+    S.resetEmail=fe;S.authMode="reset";renderAuth();
+  }
+  else if(f.id==="freset"){
+    var rs=formData(f);
+    if(!/^\d{4,10}$/.test(rs.code.replace(/\s+/g,""))){authMsg("Enter the code from the email.");return}
+    if(!rs.password||rs.password.length<8){authMsg("Use at least 8 characters for the new password.");return}
+    if(rs.password!==rs.password2){authMsg("The two passwords are not the same.");return}
+    btn.disabled=true;authMsg("");
+    var vo=await sb.auth.verifyOtp({email:S.resetEmail,token:rs.code.replace(/\s+/g,""),type:"recovery"});
+    if(vo.error){authMsg("That code is not correct or has expired. Send a new code.");btn.disabled=false;return}
+    var up=await sb.auth.updateUser({password:rs.password});
+    if(up.error){authMsg("Could not save the new password. Try again.");try{await sb.auth.signOut()}catch(e){}btn.disabled=false;return}
+    S.resetEmail="";
+    await boot();toast("Password changed. You are signed in.");
   }
   else if(f.id==="fsetup"){
     var s=formData(f);btn.disabled=true;authMsg("");
