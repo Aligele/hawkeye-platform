@@ -1,7 +1,7 @@
 {
-  "name": "Eldoret Ward Voter Survey",
+  "name": "Uasin Gishu Ward Voter Survey",
   "short_name": "Ward Survey",
-  "description": "Field questionnaire and results for the Eldoret ward voter survey.",
+  "description": "Field questionnaire and results for the Uasin Gishu ward voter survey.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

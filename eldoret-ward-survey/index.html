@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ward Survey">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>Eldoret Ward Voter Survey</title>
+<title>Uasin Gishu Ward Voter Survey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
@@ -183,7 +183,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 <body class="auth-out">
 
 <section id="loginView" hidden>
-  <h1>Eldoret Ward Voter Survey</h1>
+  <h1>Uasin Gishu Ward Voter Survey</h1>
   <p>Sign in with the username and password from the survey admin.</p>
   <form id="signinForm" autocomplete="on">
     <label for="liUser">Username or email</label>
@@ -195,7 +195,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   </form>
 </section>
 <div class="top"><div class="top-in">
-  <div class="brand"><h1>Eldoret Ward Voter Survey</h1><span id="statusLine">Uasin Gishu County &middot; presidential election study</span></div>
+  <div class="brand"><h1>Uasin Gishu Ward Voter Survey</h1><span id="statusLine">Uasin Gishu County &middot; presidential election study</span></div>
   <div class="acct"><span id="who"></span><button class="link" id="installBtn" type="button" hidden>Install app</button><button class="link" id="changePw" type="button">Password</button><button class="link" id="signOut" type="button">Sign out</button></div>
   <div class="tabs" role="tablist" id="tabBar" style="display:none">
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
@@ -789,7 +789,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       cols.forEach(function (c) { var v = r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
       lines.push(line.map(csvCell).join(","));
     });
-    try { await dl.save({ filename: "eldoret-ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
+    try { await dl.save({ filename: "uasin-gishu-ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
   }
 
@@ -805,7 +805,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       all.sort(function (a, b) { return a.ts - b.ts; });
       var lines = [["Date", "Ward", "Phone", "Email", "Interviewer"].join(",")];
       all.forEach(function (r) { lines.push([new Date(r.ts).toLocaleDateString("en-CA"), r.ward, r.phone, r.email, r.by].map(csvCell).join(",")); });
-      await dl.save({ filename: "eldoret-recontact-list-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "\ufeff" + lines.join("\r\n") });
+      await dl.save({ filename: "uasin-gishu-recontact-list-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "\ufeff" + lines.join("\r\n") });
     } catch (e) { if (!e || e.code !== "declined") toast("Could not load the list. Only admins can download it."); }
   }
 
@@ -913,7 +913,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
     /* ----- title block ----- */
     fill(GREEN); doc.rect(0, 0, PW, 34, "F");
-    put("Eldoret Ward Voter Survey", M, 15, 21, true, WHITE);
+    put("Uasin Gishu Ward Voter Survey", M, 15, 21, true, WHITE);
     put("Summary report | Uasin Gishu County | " + (wardFilter ? wardFilter + " ward" : "All study wards"), M, 23, 10.5, false, WHITE);
     put("Prepared " + dfmt(new Date()) + " | Fieldwork " + dfmt(t0) + (dfmt(t0) === dfmt(t1) ? "" : " to " + dfmt(t1)), M, 29, 9, false, WHITE);
     y = 42;
@@ -1008,7 +1008,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     /* ----- footers ----- */
     var pages = doc.getNumberOfPages();
     for (var i = 1; i <= pages; i++) {
-      doc.setPage(i); put("Eldoret ward voter survey | " + (wardFilter || "All wards") + " | " + n + " interviews", M, PH - 8, 8, false, MUTED); put("Page " + i + " of " + pages, PW - M, PH - 8, 8, false, MUTED, "right");
+      doc.setPage(i); put("Uasin Gishu ward voter survey | " + (wardFilter || "All wards") + " | " + n + " interviews", M, PH - 8, 8, false, MUTED); put("Page " + i + " of " + pages, PW - M, PH - 8, 8, false, MUTED, "right");
     }
     return doc;
   }
@@ -1024,7 +1024,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (!list.length) { toast("Save at least one interview first."); return; }
     var doc;
     try { doc = buildReport(lib, list, cl); } catch (e) { try { console.error(e); } catch (x) {} toast("Could not build the report."); return; }
-    try { await dl.save({ filename: "eldoret-ward-survey-report-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf", data: doc.output("arraybuffer") }); }
+    try { await dl.save({ filename: "uasin-gishu-ward-survey-report-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf", data: doc.output("arraybuffer") }); }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the report."); }
   }
 
