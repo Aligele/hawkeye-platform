@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ward Survey">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>Uasin Gishu Ward Voter Survey</title>
+<title>Ward Voter Survey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
@@ -191,7 +191,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 <body class="auth-out">
 
 <section id="loginView" hidden>
-  <h1>Uasin Gishu Ward Voter Survey</h1>
+  <h1>Ward Voter Survey</h1>
   <p>Sign in with the username and password from the survey admin.</p>
   <form id="signinForm" autocomplete="on">
     <label for="liUser">Username or email</label>
@@ -203,7 +203,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   </form>
 </section>
 <div class="top"><div class="top-in">
-  <div class="brand"><h1>Uasin Gishu Ward Voter Survey</h1><span id="statusLine">Uasin Gishu County &middot; presidential election study</span></div>
+  <div class="brand"><h1>Ward Voter Survey</h1><span id="statusLine">Kenya &middot; presidential election study</span></div>
   <div class="acct"><span id="who"></span><button class="link" id="installBtn" type="button" hidden>Install app</button><button class="link" id="changePw" type="button">Password</button><button class="link" id="signOut" type="button">Sign out</button></div>
   <div class="tabs" role="tablist" id="tabBar" style="display:none">
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
@@ -243,10 +243,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <div class="card" style="margin-top:12px"><h3>Enumerators</h3>
       <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th></tr></thead><tbody id="fieldList"></tbody></table></div>
     <div class="card" style="margin-top:12px"><h3>Ward GPS fences</h3>
-      <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Wards with no fence accept submissions from anywhere.</p>
+      <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Every ward starts with a default fence taken from its constituency. Set the exact centre and radius here to tighten it.</p>
       <p class="empty" id="noFence" style="margin:6px 0 0"></p>
       <div class="fence-form">
-        <select id="fcWard" class="inp full"></select>
+        <select id="fcCounty" class="inp"></select>
+        <select id="fcWard" class="inp"></select>
         <input class="inp" id="fcLat" placeholder="Latitude" inputmode="decimal">
         <input class="inp" id="fcLng" placeholder="Longitude" inputmode="decimal">
         <input class="inp" id="fcRad" placeholder="Radius in metres (e.g. 3000)" inputmode="numeric">
@@ -254,7 +255,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         <button class="btn ghost" id="fcHere" type="button">Use my location</button>
         <button class="btn ghost" id="fcPick" type="button">Pick on map</button>
         <button class="btn ghost" id="fcSave" type="button">Save fence</button>
-        <button class="btn ghost" id="fcDel" type="button">Remove fence</button>
+        <button class="btn ghost" id="fcDel" type="button">Reset to default</button>
       </div>
     </div>
   </main>
@@ -263,7 +264,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   <main id="view-res" hidden>
     <div class="filter">
       <label for="wardFilter">Show</label>
-      <select id="wardFilter"><option value="">All wards</option></select>
+      <select id="wardFilter"><option value="">All of Kenya</option></select>
       <span class="spacer"></span>
       <button class="btn ghost" id="reportBtn" type="button">Download report (PDF)</button>
       <button class="btn ghost" id="exportBtn" type="button">Download data (CSV)</button>
@@ -271,7 +272,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     </div>
     <div id="results"></div>
     <details class="admin" id="adminBox" hidden>
-      <summary>Admin: team logins and ward list</summary>
+      <summary>Admin: team logins</summary>
       <p class="empty" style="margin:8px 0">Create a login for each enumerator. They see only the questionnaire and never the results.</p>
       <table class="team"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody id="teamList"></tbody></table>
       <div class="teamform">
@@ -281,9 +282,6 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         <select class="inp" id="tfRole"><option value="enumerator">Enumerator (questionnaire only)</option><option value="admin">Admin (sees results)</option></select>
         <div><button class="btn ghost" id="tfCreate" type="button">Create login</button></div>
       </div>
-      <p class="empty" style="margin:14px 0 8px">The study wards, one per line. Wards not in the two groups appear under Other wards.</p>
-      <textarea class="inp" id="wardText" style="width:100%;margin:0" rows="10"></textarea>
-      <div style="margin-top:8px"><button class="btn ghost" id="wardSave" type="button">Save ward names</button></div>
       <p class="empty" style="margin:14px 0 8px">Phone numbers and emails of people who agreed to future polls. They are stored apart from the interview answers, and only admins can see or download them.</p>
       <div><button class="btn ghost" id="contactExport" type="button">Download re-contact list</button></div>
     </details>
@@ -300,17 +298,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   "use strict";
 
   /* ---------- constants ---------- */
-  var TARGET_PER_WARD = 50, TARGET_WARDS = 10;
-  var GROUPS = [
-    ["Soy", ["Kipsomba", "Kunet/Kapsuswa", "Soy", "Ziwa", "Kapkures", "Moi's Bridge", "Segero/Barsombe"]],
-    ["Turbo", ["Huruma", "Kamagut", "Kapsaos", "Kiplombe", "Ngenyilel", "Tapsagoi"]],
-    ["Moiben", ["Karuna/Meibeki", "Kimumu", "Moiben", "Sergoit", "Tembelio"]],
-    ["Ainabkoi", ["Ainabkoi/Olare", "Kaptagat", "Kapsoya"]],
-    ["Kapseret", ["Ngeria", "Simat/Kapseret", "Kipkenyo", "Langas", "Megun"]],
-    ["Kesses", ["Tulwet/Chuiyat", "Tarakwa", "Cheptiret/Kipchamo", "Racecourse"]]
-  ];
-  var WARD_CONST = {};
-  GROUPS.forEach(function (g) { g[1].forEach(function (w) { WARD_CONST[w] = g[0]; }); });
+  var TARGET_PER_WARD = 50;
+  var WARD_CONST = {};            /* ward label -> constituency */
+  var AREAS = null, WBL = {}, CWARDS = {}, COUNTIES = [];   /* national county / ward list */
   var CONSENT_YES = "Yes, continue", CONSENT_NO = "No, end the interview";
   var SAME = "Same candidate / party", DIFF = "Different candidate / party", NOVOTE22 = "Did not vote in 2022", UNDEC_NOW = "Undecided now";
   var REASON_PAST = ["Economy / cost of living", "Jobs / youth employment", "Fighting corruption", "Security", "Health / education", "Farming / crop prices", "Leader's character / experience", "Party loyalty", "Candidate is from my community / region", "Development record", "Campaign promises", "Advice from family / friends / leaders", "Other", "Cannot remember"];
@@ -323,6 +313,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var SECTIONS = [
     { id: "details", title: "Interview details", items: [
       { id: "interviewer", num: "", text: "Interviewer", type: "interviewer", req: true },
+      { id: "county", num: "", text: "County", type: "county", req: true },
       { id: "ward", num: "", text: "Ward", type: "ward", req: true },
       { id: "consent", num: "", text: "Respondent agrees to take part", type: "single", opts: [CONSENT_YES, CONSENT_NO], req: true }
     ]},
@@ -387,13 +378,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var uid = null, db = null, canWrite = true, isAdmin = false, lockedName = "";
   var ans = {};
   var rows = [], contacts = [], openRec = {};
-  var STRATA = [
-    ["Ruto lost or close (shown in 2022 results)", ["Huruma", "Langas", "Kiplombe"]],
-    ["Likely competitive (urban or mixed, to be confirmed)", ["Kapsoya", "Racecourse", "Kimumu", "Tulwet/Chuiyat", "Kipkenyo", "Moi's Bridge", "Ngenyilel"]]
-  ];
-  var WARD_STRAT = {};
+  var STRATA = [], WARD_STRAT = {};
   var interviewers = ["Ali", "Interviewer 1", "Interviewer 2", "Interviewer 3"];
-  var wards = []; STRATA.forEach(function (g) { wards = wards.concat(g[1]); g[1].forEach(function (w) { WARD_STRAT[w] = g[0]; }); });
+  var wards = [];
   var wardsLoaded = false;
   var savedThisSession = 0;
   var wardFilter = "";
@@ -411,6 +398,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     else if (q.type === "star") h += '<div class="chips"></div>';
     else if (q.type === "text") h += '<input class="inp" type="text" data-in="' + q.id + '" placeholder="' + esc(q.ph || "") + '" maxlength="120">';
     else if (q.type === "area") h += '<textarea class="inp" data-in="' + q.id + '" maxlength="600"></textarea>';
+    else if (q.type === "county") h += '<select class="inp" data-in="county"></select>';
     else if (q.type === "ward") h += '<select class="inp" data-in="ward"></select>';
     else if (q.type === "tel") h += '<input class="inp" type="tel" inputmode="tel" autocomplete="off" data-in="' + q.id + '" placeholder="07xx xxx xxx" maxlength="20">';
     else if (q.type === "email") h += '<input class="inp" type="email" inputmode="email" autocomplete="off" autocapitalize="off" data-in="' + q.id + '" placeholder="name@example.com" maxlength="80">';
@@ -424,19 +412,40 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       return '<section class="sec" data-sec="' + s.id + '"><div class="sec-h"><h2>' + esc(s.title) + '</h2></div>' + s.items.map(qHTML).join("") + '</section>';
     }).join("");
     $("form").innerHTML = h;
+    fillCountySelect();
     fillWardSelect();
     fillInterviewerSelect();
     syncControls();
     refresh();
   }
-  function wardOptions(extra) {
-    var list = wards.concat((extra || []).filter(function (w) { return wards.indexOf(w) < 0; }));
-    var names = STRATA.map(function (g) { return g[0]; }).concat(["Other wards"]);
-    var by = {}; names.forEach(function (n) { by[n] = []; });
-    list.forEach(function (w) { by[WARD_STRAT[w] || "Other wards"].push(w); });
-    return names.filter(function (n) { return by[n].length; }).map(function (n) {
-      return '<optgroup label="' + esc(n) + '">' + by[n].map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + (WARD_CONST[w] ? ' (' + esc(WARD_CONST[w]) + ')' : '') + '</option>'; }).join("") + '</optgroup>';
-    }).join("");
+  function indexAreas(d) {
+    AREAS = d;
+    var kn = {}, cn = {};
+    d.cons.forEach(function (k) { kn[k.c] = k; });
+    d.counties.forEach(function (c) { cn[c.c] = c; });
+    COUNTIES = d.counties.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; });
+    WBL = {}; CWARDS = {}; WARD_CONST = {};
+    d.wards.forEach(function (w) {
+      var k = kn[w.k], c = cn[k.cc];
+      var o = { code: w.c, name: w.n, label: w.l, county: c.n, cons: k.n, lat: k.lat, lng: k.lng, r: k.r };
+      WBL[w.l] = o; WARD_CONST[w.l] = k.n; (CWARDS[c.n] = CWARDS[c.n] || []).push(o);
+    });
+    Object.keys(CWARDS).forEach(function (c) { CWARDS[c].sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; }); });
+    wards = Object.keys(WBL);
+  }
+  async function loadAreas() {
+    try { var r = await fetch("kenya-areas.json", { cache: "force-cache" }); if (!r.ok) throw new Error("http " + r.status); indexAreas(await r.json()); }
+    catch (e) { try { var r2 = await fetch("kenya-areas.json"); indexAreas(await r2.json()); } catch (e2) { toast("Could not load the county and ward list. Check the connection and reload."); } }
+  }
+  function inFilter(r) {
+    if (!wardFilter) return true;
+    if (wardFilter.indexOf("c:") === 0) return r.county === wardFilter.slice(2);
+    return r.ward === wardFilter;
+  }
+  function filterLabel() { return wardFilter ? (wardFilter.indexOf("c:") === 0 ? wardFilter.slice(2) + " County" : wardFilter) : "All of Kenya"; }
+  function countyGroups(list) {
+    var t = tally(list.map(function (r) { return r.county || (WBL[r.ward] || {}).county || "Unknown"; })).slice(0, 12);
+    return t.map(function (e) { return [e[0] + " County", function (r) { return (r.county || (WBL[r.ward] || {}).county || "Unknown") === e[0]; }]; });
   }
   function fillInterviewerSelect() {
     var sel = document.querySelector('select[data-in="interviewer"]');
@@ -444,11 +453,19 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     sel.innerHTML = '<option value="">Choose your name</option>' + interviewers.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
     if (ans.interviewer && interviewers.indexOf(ans.interviewer) > -1) sel.value = ans.interviewer; else if (ans.interviewer) ans.interviewer = "";
   }
+  function fillCountySelect() {
+    var sel = document.querySelector('select[data-in="county"]');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Choose a county</option>' + COUNTIES.map(function (c) { return '<option value="' + esc(c.n) + '">' + esc(c.n) + '</option>'; }).join("");
+    if (ans.county && CWARDS[ans.county]) sel.value = ans.county; else if (ans.county) ans.county = "";
+  }
   function fillWardSelect() {
     var sel = document.querySelector('select[data-in="ward"]');
     if (!sel) return;
-    sel.innerHTML = '<option value="">Choose a ward</option>' + wardOptions();
-    if (ans.ward && wards.indexOf(ans.ward) > -1) sel.value = ans.ward; else if (ans.ward) { ans.ward = ""; }
+    var list = ans.county ? (CWARDS[ans.county] || []) : [];
+    sel.disabled = !list.length;
+    sel.innerHTML = '<option value="">' + (list.length ? "Choose a ward" : "Choose a county first") + '</option>' + list.map(function (o) { return '<option value="' + esc(o.label) + '">' + esc(o.name) + ' (' + esc(o.cons) + ')</option>'; }).join("");
+    if (ans.ward && WBL[ans.ward] && WBL[ans.ward].county === ans.county) { sel.value = ans.ward; ensureFence(ans.ward); } else if (ans.ward) { ans.ward = ""; }
   }
   function syncControls() {
     document.querySelectorAll(".q").forEach(function (el) {
@@ -522,6 +539,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var q = QMAP[id];
     if (q.type === "cand") { ans[id] = { t: t.value, f: t.value.trim() ? "" : ((ans[id] || {}).f || "") }; syncControls(); }
     else if (q.type === "candsel") { if (!t.value) delete ans[id]; else ans[id] = (q.flags || []).indexOf(t.value) > -1 ? { t: "", f: t.value } : { t: t.value, f: "" }; }
+    else if (id === "county") { ans.county = t.value; ans.ward = ""; fillWardSelect(); }
+    else if (id === "ward") { ans.ward = t.value; if (t.value) ensureFence(t.value); }
     else { ans[id] = t.value; if (id === "interviewer") store("ward-survey-interviewer", t.value); }
     t.classList.remove("invalid");
     refresh();
@@ -549,9 +568,28 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; }
   function fenceFor(w) { var f = fences[w]; return f && f.enabled ? f : null; }
+  var fenceSt = {};
+  async function ensureFence(label) {
+    var w = WBL[label];
+    if (!label || isAdmin || !sb || !w || fenceSt[label] === "loading" || fenceSt[label] === "ok") return;
+    fenceSt[label] = "loading"; refresh();
+    try {
+      var r = await sb.from("ward_geofences").select("*").eq("ward_code", w.code).maybeSingle();
+      if (r.error) throw r.error;
+      if (r.data) { fences[label] = r.data; fenceSt[label] = "ok"; } else fenceSt[label] = "missing";
+    } catch (e) { fenceSt[label] = "error"; }
+    refresh();
+  }
   function geoState(ward) {
+    if (isAdmin || !ward) return { enforced: false, ok: true, msg: "" };
     var f = fenceFor(ward);
-    if (isAdmin || !f) return { enforced: false, ok: true, msg: "" };
+    if (!f) {
+      var st = fenceSt[ward];
+      if (st === "ok") return { enforced: false, ok: true, msg: "" };
+      if (st === "missing") return { enforced: true, ok: false, msg: "GPS fences are not set up yet. Ask the admin to sign in once, then reload this page." };
+      if (st === "error") return { enforced: true, ok: false, msg: "Could not check the ward location. Check the connection." };
+      return { enforced: true, ok: false, msg: "Checking the ward location..." };
+    }
     if (!lastPos) return { enforced: true, ok: false, msg: geoErr || "Waiting for your phone location..." };
     if (lastPos.acc > 500) return { enforced: true, ok: false, msg: "GPS signal is weak (accuracy " + Math.round(lastPos.acc) + " m). Move outdoors and wait a moment." };
     var d = distM(lastPos.lat, lastPos.lng, f.lat, f.lng);
@@ -591,12 +629,16 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   async function addResponse(o) {
     if (!uid) { var er = new Error("no user"); er.code = "no_user"; throw er; }
+    if (!isAdmin) await ensureFence(o.ward);
     await geoGate(o.ward);
-    var row = { interviewer: o.interviewer, ward: o.ward, outcome: o.outcome || null, data: o };
+    var wi = WBL[o.ward] || {};
+    var row = { interviewer: o.interviewer, ward: o.ward, county: o.county || wi.county || null, constituency: wi.cons || null, ward_code: wi.code || null, outcome: o.outcome || null, data: o };
     if (!isAdmin && lastPos) { row.lat = lastPos.lat; row.lng = lastPos.lng; row.accuracy_m = lastPos.acc; }
     var r = await sb.from("interviews").insert(row);
     if (r.error) {
       var m = r.error.message || "";
+      if (/fence_not_ready/.test(m)) throw geoFail("GPS fences are not set up yet. Ask the admin to sign in once.");
+      if (/ward_required/.test(m)) throw geoFail("Choose the county and ward first.");
       if (/outside_ward|location_required/.test(m)) throw geoFail("The server refused this: your location is outside the ward area.");
       var e2 = new Error(m); e2.code = r.error.code === "42501" ? "invalid_argument" : r.error.code; throw e2;
     }
@@ -607,12 +649,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var outcome = ans.consent === CONSENT_NO ? "refused" : ans.s1 === "No" ? "not_resident" : ans.s2 === "No" ? "under_18" : "";
     if (!outcome) return;
     var iv = (ans.interviewer || "").trim();
-    if (!iv || !ans.ward) { toast("Enter your name and choose the ward first."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (!iv || !ans.ward || !ans.county) { toast("Enter your name and choose the county and ward first."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     if (!canWrite) { toast("You have view-only access."); return; }
     var btn = $("recordStop"); if (btn) btn.disabled = true;
     try {
-      await addResponse({ v: 1, ts: Date.now(), interviewer: iv, ward: ans.ward, outcome: outcome });
-      var keep = { interviewer: ans.interviewer, ward: ans.ward };
+      await addResponse({ v: 1, ts: Date.now(), interviewer: iv, county: ans.county, ward: ans.ward, outcome: outcome });
+      var keep = { interviewer: ans.interviewer, county: ans.county, ward: ans.ward };
       ans = keep; starKey = "";
       buildForm();
       toast("Contact recorded. Ready for the next respondent.");
@@ -653,9 +695,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       contact = { phone: ph, email: em };
     }
     var now = new Date();
-    var doc = { v: 1, ts: now.getTime(), interviewer: (ans.interviewer || "").trim(), ward: ans.ward };
+    var doc = { v: 1, ts: now.getTime(), interviewer: (ans.interviewer || "").trim(), county: ans.county, ward: ans.ward };
     QLIST.forEach(function (q) {
-      if (q.id === "interviewer" || q.id === "ward" || q.type === "tel" || q.type === "email" || !visible(q)) return;
+      if (q.id === "interviewer" || q.id === "county" || q.id === "ward" || q.type === "tel" || q.type === "email" || !visible(q)) return;
       var v = ans[q.id];
       if (!filled(q, v)) return;
       if (q.type === "cand" || q.type === "candsel") doc[q.id] = { t: v.t.trim().replace(/\s+/g, " "), f: v.f || "" };
@@ -671,7 +713,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       }
       await addResponse(doc);
       savedThisSession++; updateStatus();
-      var keep = { interviewer: ans.interviewer, ward: ans.ward };
+      var keep = { interviewer: ans.interviewer, county: ans.county, ward: ans.ward };
       ans = keep; starKey = "";
       buildForm();
       toast("Interview saved. Ready for the next respondent.");
@@ -728,7 +770,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     else {
       var past = pastLabel(r), now = nowLabel(r);
       line = (past || "No 2022 vote named") + " \u2192 " + (now || "no choice recorded");
-      body = '<div class="sw">' + QLIST.filter(function (q) { return q.id !== "interviewer" && q.id !== "ward" && q.id !== "consent" && filled(q, r[q.id]); }).map(function (q) {
+      body = '<div class="sw">' + QLIST.filter(function (q) { return q.id !== "interviewer" && q.id !== "county" && q.id !== "ward" && q.id !== "consent" && filled(q, r[q.id]); }).map(function (q) {
         return '<div><em>' + esc(((q.num ? q.num + " " : "") + q.text).replace(/\s*\(.*\)\s*$/, "")) + '</em><b>' + esc(answerText(q, r[q.id])) + '</b></div>';
       }).join("") + '</div>';
     }
@@ -743,10 +785,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var removeArm = null;
   function renderResults() {
     var all = rows;
-    var list = wardFilter ? all.filter(function (r) { return r.ward === wardFilter; }) : all;
+    var list = all.filter(inFilter);
     var n = list.length;
-    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
-    var target = (wardFilter ? 1 : TARGET_WARDS) * TARGET_PER_WARD;
+    var cl = contacts.filter(inFilter);
+    var wsetT = {}; list.forEach(function (r) { wsetT[r.ward] = 1; }); var target = Math.max(1, Object.keys(wsetT).length) * TARGET_PER_WARD;
     var h = "";
     if (!db) { $("results").innerHTML = '<div class="banner warn">Results are unavailable in this view. Sign in to see saved interviews.</div>'; return; }
     if (n < 30 && n > 0) h += '<div class="banner warn">Only ' + n + ' interview' + (n === 1 ? "" : "s") + ' so far. Treat percentages as early indications.</div>';
@@ -757,11 +799,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var dm = Math.max.apply(null, days.map(function (x) { return x.n; })) || 1;
     var prog = '<div class="big">' + n + ' <small>of ' + target + ' interviews</small></div><div class="meter"><i style="width:' + Math.min(100, pct(n, target)) + '%"></i></div>' +
       '<div class="days">' + days.map(function (x) { return '<div><span>' + (x.n || "") + '</span><b style="height:' + Math.round(100 * x.n / dm * 0.7) + '%"></b><span>' + dayLabel(x.d) + '</span></div>'; }).join("") + '</div>';
-    var byWard = tally(all.map(function (r) { return r.ward; }));
+    var byWard = tally(list.map(function (r) { return r.ward; })).slice(0, 40);
     var wardRows = byWard.length ? '<div class="bl">' + byWard.map(function (e) {
       return '<div class="bl-row"><div class="l"><span>' + esc(e[0]) + (WARD_CONST[e[0]] ? ' <small style="color:var(--muted)">' + esc(WARD_CONST[e[0]]) + '</small>' : '') + '</span><span>' + e[1] + ' / ' + TARGET_PER_WARD + '</span></div><div class="t"><i style="width:' + Math.min(100, pct(e[1], TARGET_PER_WARD)) + '%"></i></div></div>';
     }).join("") + '</div>' : '<p class="empty">No ward has an interview yet.</p>';
-    h += '<div class="grid two">' + card("Progress", wardFilter ? wardFilter : "All wards, last 7 days", prog) + card("Interviews by ward", byWard.length + " of " + TARGET_WARDS + " study wards started, target " + TARGET_PER_WARD + " each", wardRows) + '</div>';
+    h += '<div class="grid two">' + card("Progress", filterLabel() + ", last 7 days", prog) + card("Interviews by ward", byWard.length + " ward" + (byWard.length === 1 ? "" : "s") + " with interviews, target " + TARGET_PER_WARD + " each", wardRows) + '</div>';
 
     var cRef = cl.filter(function (r) { return r.outcome === "refused"; }).length;
     var cElig = cl.length - cRef;
@@ -776,8 +818,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       $("results").innerHTML = h; return;
     }
 
-    var groups = STRATA.map(function (g) { return [g[0], function (r) { return g[1].indexOf(r.ward) > -1; }]; });
-    groups.push(["Other wards", function (r) { return wards.indexOf(r.ward) < 0; }]);
+    var groups = countyGroups(list);
     groups.push(["Kikuyu respondents", function (r) { return r.a5 === "Kikuyu"; }]);
     groups.push(["Other communities", function (r) { return !!r.a5 && r.a5 !== "Kikuyu" && r.a5 !== "Prefer not to say"; }]);
     var strat = groups.map(function (g) {
@@ -787,7 +828,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       return '<div class="sw" style="margin-bottom:12px"><div><b>' + esc(g[0]) + '</b><b>' + sub.length + ' interviews</b></div>' +
         (t.length ? t.map(function (e) { return '<div><em>' + esc(e[0]) + '</em><b>' + pct(e[1], nl.length) + '%</b></div>'; }).join("") : '<div><em>No choices recorded yet</em><b></b></div>') + '</div>';
     }).join("");
-    h += '<div class="grid">' + card("Choices by group", "Top three choices now, by ward group and by community", strat) + '</div>';
+    h += '<div class="grid">' + card("Choices by county", "Top three choices now, by county and by community", strat) + '</div>';
 
     // vote then and now
     var pastL = list.map(pastLabel).filter(Boolean), nowL = list.map(nowLabel).filter(Boolean);
@@ -855,8 +896,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var rafId = 0;
   function scheduleRender() { if (rafId) return; rafId = requestAnimationFrame(function () { rafId = 0; renderResults(); updateStatus(); updateDatalist(); }); }
   function updateStatus() {
-    if (db && !isAdmin) { $("statusLine").textContent = "Uasin Gishu County \u00b7 " + (lockedName ? lockedName + " \u00b7 " : "") + myTotal + " saved by you"; return; }
-    $("statusLine").textContent = db ? "Uasin Gishu County \u00b7 " + rows.length + " interview" + (rows.length === 1 ? "" : "s") + " saved" + (contacts.length ? ", " + contacts.length + " not completed" : "") : "Uasin Gishu County \u00b7 presidential election study";
+    if (db && !isAdmin) { $("statusLine").textContent = "Kenya \u00b7 " + (lockedName ? lockedName + " \u00b7 " : "") + myTotal + " saved by you"; return; }
+    $("statusLine").textContent = db ? "Kenya \u00b7 " + rows.length + " interview" + (rows.length === 1 ? "" : "s") + " saved" + (contacts.length ? ", " + contacts.length + " not completed" : "") : "Uasin Gishu County \u00b7 presidential election study";
   }
   function updateDatalist() {
     var names = {};
@@ -865,8 +906,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   function updateWardFilter() {
     var sel = $("wardFilter"), cur = wardFilter;
-    var extra = tally(rows.concat(contacts).map(function (r) { return r.ward; })).map(function (e) { return e[0]; }).filter(function (w) { return wards.indexOf(w) < 0; });
-    sel.innerHTML = '<option value="">All wards</option>' + wardOptions(extra);
+    var all = rows.concat(contacts);
+    var cs = tally(all.map(function (r) { return r.county || (WBL[r.ward] || {}).county; }).filter(Boolean)).map(function (e) { return e[0]; }).sort();
+    var ws = tally(all.map(function (r) { return r.ward; })).map(function (e) { return e[0]; }).sort();
+    sel.innerHTML = '<option value="">All of Kenya</option>' +
+      (cs.length ? '<optgroup label="Counties">' + cs.map(function (c) { return '<option value="c:' + esc(c) + '">' + esc(c) + ' County</option>'; }).join("") + '</optgroup>' : "") +
+      (ws.length ? '<optgroup label="Wards">' + ws.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + '</option>'; }).join("") + '</optgroup>' : "");
     sel.value = cur;
   }
 
@@ -876,39 +921,39 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (!isAdmin) return;
     var dl = await getDownloader();
     if (!dl) { toast("Download is not available in this view."); return; }
-    var head = ["Date", "Time", "Interviewer", "Ward", "Status"], cols = [];
+    var head = ["Date", "Time", "Interviewer", "County", "Constituency", "Ward", "Status"], cols = [];
     QLIST.forEach(function (q) {
-      if (q.id === "interviewer" || q.id === "ward" || q.type === "tel" || q.type === "email") return;
+      if (q.id === "interviewer" || q.id === "county" || q.id === "ward" || q.type === "tel" || q.type === "email") return;
       if (q.type === "cand" || q.type === "candsel") { head.push((q.num || q.id) + " candidate", (q.num || q.id) + " other answer"); cols.push([q, "t"], [q, "f"]); }
       else { head.push((q.num || q.id) + " " + q.text.replace(/\s*\(.*\)\s*$/, "").slice(0, 60)); cols.push([q, ""]); }
     });
     var lines = [head.map(csvCell).join(",")];
     rows.concat(contacts).sort(function (a, b) { return a.ts - b.ts; }).forEach(function (r) {
       var t = new Date(r.ts);
-      var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.ward, r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
+      var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.county || (WBL[r.ward] || {}).county || "", WARD_CONST[r.ward] || "", r.ward, r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
       cols.forEach(function (c) { var v = r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
       lines.push(line.map(csvCell).join(","));
     });
-    try { await dl.save({ filename: "uasin-gishu-ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
+    try { await dl.save({ filename: "ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
   }
 
   async function exportJson() {
     if (!isAdmin) return;
     var dl = await getDownloader();
-    var list = wardFilter ? rows.filter(function (r) { return r.ward === wardFilter; }) : rows;
-    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
+    var list = rows.filter(inFilter);
+    var cl = contacts.filter(inFilter);
     if (!list.length && !cl.length) { toast("Nothing to download yet."); return; }
     function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.recorded_at = new Date(o.ts).toISOString(); return o; }
     var out = {
-      survey: "Uasin Gishu Ward Voter Survey",
+      survey: "Ward Voter Survey",
       exported_at: new Date().toISOString(),
-      ward_filter: wardFilter || "all wards",
+      area_filter: filterLabel(),
       counts: { completed: list.length, not_completed: cl.length, approached: list.length + cl.length },
       interviews: list.map(clean),
       not_completed: cl.map(clean)
     };
-    try { await dl.save({ filename: "uasin-gishu-ward-survey-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".json", data: JSON.stringify(out, null, 2) }); }
+    try { await dl.save({ filename: "ward-survey-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".json", data: JSON.stringify(out, null, 2) }); }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
   }
   async function exportContacts() {
@@ -923,7 +968,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       all.sort(function (a, b) { return a.ts - b.ts; });
       var lines = [["Date", "Ward", "Phone", "Email", "Interviewer"].join(",")];
       all.forEach(function (r) { lines.push([new Date(r.ts).toLocaleDateString("en-CA"), r.ward, r.phone, r.email, r.by].map(csvCell).join(",")); });
-      await dl.save({ filename: "uasin-gishu-recontact-list-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "\ufeff" + lines.join("\r\n") });
+      await dl.save({ filename: "ward-survey-recontact-list-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "\ufeff" + lines.join("\r\n") });
     } catch (e) { if (!e || e.code !== "declined") toast("Could not load the list. Only admins can download it."); }
   }
 
@@ -1031,8 +1076,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
     /* ----- title block ----- */
     fill(GREEN); doc.rect(0, 0, PW, 34, "F");
-    put("Uasin Gishu Ward Voter Survey", M, 15, 21, true, WHITE);
-    put("Summary report | Uasin Gishu County | " + (wardFilter ? wardFilter + " ward" : "All study wards"), M, 23, 10.5, false, WHITE);
+    put("Ward Voter Survey", M, 15, 21, true, WHITE);
+    put("Summary report | " + filterLabel(), M, 23, 10.5, false, WHITE);
     put("Prepared " + dfmt(new Date()) + " | Fieldwork " + dfmt(t0) + (dfmt(t0) === dfmt(t1) ? "" : " to " + dfmt(t1)), M, 29, 9, false, WHITE);
     y = 42;
 
@@ -1061,12 +1106,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     /* ----- fieldwork ----- */
     h2("Fieldwork progress");
     var tot = {}; list.forEach(function (r) { tot[r.ward] = (tot[r.ward] || 0) + 1; });
-    var wardNames = wards.concat(Object.keys(tot).filter(function (w) { return wards.indexOf(w) < 0; }));
-    if (wardFilter) wardNames = [wardFilter];
-    table(["Ward", "Constituency", "Group", "Done", "Target"], wardNames.map(function (w) {
-      var g = WARD_STRAT[w] || "Other"; g = g.indexOf("lost or close") > -1 ? "Ruto lost or close" : g.indexOf("competitive") > -1 ? "Likely competitive" : g;
-      return [w, WARD_CONST[w] || "-", g, tot[w] || 0, TARGET_PER_WARD];
-    }), [40, 34, 50, 25, 25]);
+    var wardNames = Object.keys(tot).sort(function (a, b) { return tot[b] - tot[a]; });
+    table(["Ward", "Constituency", "County", "Done", "Target"], wardNames.slice(0, 60).map(function (w) {
+      var o = WBL[w] || {};
+      return [w, o.cons || "-", o.county || "-", tot[w], TARGET_PER_WARD];
+    }), [50, 36, 36, 26, 26]);
     var iv = {}; list.concat(cl).forEach(function (r) { var k = norm(r.interviewer || "unknown"); if (!iv[k]) iv[k] = { name: r.interviewer || "Unknown", n: 0, nc: 0 }; if (r.outcome) iv[k].nc++; else iv[k].n++; });
     var ivRows = Object.keys(iv).map(function (k) { return iv[k]; }).sort(function (a, b) { return b.n - a.n; });
     table(["Interviewer", "Completed", "Not completed"], ivRows.map(function (x) { return [x.name, x.n, x.nc]; }), [80, 47, 47]);
@@ -1083,9 +1127,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     bars("Why they changed their choice", "C5", ofField(list, "c5").e, ofField(list, "c5").base, AMBER, 8);
 
     /* ----- by group ----- */
-    h2("Choices by ward group and community");
-    var groups = STRATA.map(function (g) { return [g[0], function (r) { return g[1].indexOf(r.ward) > -1; }]; });
-    groups.push(["Other wards", function (r) { return wards.indexOf(r.ward) < 0; }]);
+    h2("Choices by county and community");
+    var groups = countyGroups(list);
     groups.push(["Kikuyu respondents", function (r) { return r.a5 === "Kikuyu"; }]);
     groups.push(["Other communities", function (r) { return !!r.a5 && r.a5 !== "Kikuyu" && r.a5 !== "Prefer not to say"; }]);
     var grows = []; groups.forEach(function (g) {
@@ -1121,12 +1164,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
     /* ----- notes ----- */
     h2("Notes on the data");
-    para("Percentages are shares of the respondents who answered each question, so bases differ between charts. The ward groups were chosen to compare places where the president lost or the result was close, so the figures describe these wards and do not represent the whole county. Respondents were approached by interviewers and not drawn at random. Answers are anonymous: no names or ID numbers are recorded, and phone numbers or emails given for future polls are stored separately and are not part of this report.", 9.5, INK);
+    para("Percentages are shares of the respondents who answered each question, so bases differ between charts. The wards were chosen by the study team, so the figures describe the areas visited and do not represent the whole county or country. Respondents were approached by interviewers and not drawn at random. Answers are anonymous: no names or ID numbers are recorded, and phone numbers or emails given for future polls are stored separately and are not part of this report.", 9.5, INK);
 
     /* ----- footers ----- */
     var pages = doc.getNumberOfPages();
     for (var i = 1; i <= pages; i++) {
-      doc.setPage(i); put("Uasin Gishu ward voter survey | " + (wardFilter || "All wards") + " | " + n + " interviews", M, PH - 8, 8, false, MUTED); put("Page " + i + " of " + pages, PW - M, PH - 8, 8, false, MUTED, "right");
+      doc.setPage(i); put("Ward voter survey | " + filterLabel() + " | " + n + " interviews", M, PH - 8, 8, false, MUTED); put("Page " + i + " of " + pages, PW - M, PH - 8, 8, false, MUTED, "right");
     }
     return doc;
   }
@@ -1137,12 +1180,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (!dl) { toast("Download is not available in this view."); return; }
     var lib = window.jspdf && window.jspdf.jsPDF;
     if (!lib) { toast("The PDF tool did not load. Check the connection and reload the page."); return; }
-    var list = wardFilter ? rows.filter(function (r) { return r.ward === wardFilter; }) : rows;
-    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
+    var list = rows.filter(inFilter);
+    var cl = contacts.filter(inFilter);
     if (!list.length) { toast("Save at least one interview first."); return; }
     var doc;
     try { doc = buildReport(lib, list, cl); } catch (e) { try { console.error(e); } catch (x) {} toast("Could not build the report."); return; }
-    try { await dl.save({ filename: "uasin-gishu-ward-survey-report-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf", data: doc.output("arraybuffer") }); }
+    try { await dl.save({ filename: "ward-survey-report-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf", data: doc.output("arraybuffer") }); }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the report."); }
   }
 
@@ -1179,11 +1222,26 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     return all;
   }
+  async function ensureDefaultFences() {
+    if (!isAdmin || !sb || !AREAS) return;
+    try {
+      var have = {}; (await fetchAll(function () { return sb.from("ward_geofences").select("ward_code").order("ward_code"); })).forEach(function (x) { have[x.ward_code] = 1; });
+      var miss = wards.map(function (l) { return WBL[l]; }).filter(function (o) { return !have[o.code]; });
+      if (!miss.length) return;
+      toast("Setting up GPS fences for " + miss.length + " wards...");
+      for (var i = 0; i < miss.length; i += 300) {
+        var chunk = miss.slice(i, i + 300).map(function (o) { return { ward_code: o.code, county: o.county, constituency: o.cons, ward: o.label, lat: o.lat, lng: o.lng, radius_m: o.r, enabled: true, source: "default" }; });
+        var r = await sb.from("ward_geofences").upsert(chunk, { onConflict: "ward_code", ignoreDuplicates: true });
+        if (r.error) throw r.error;
+      }
+      toast("GPS fences ready for all wards."); if (!$("view-map").hidden) loadMap();
+    } catch (e) { toast("Could not set up the default GPS fences. Reload to retry."); }
+  }
   async function loadMap() {
     if (!isAdmin || !sb) return;
     try {
       var hrs = parseInt($("mapRange").value, 10) || 24, since = new Date(Date.now() - hrs * 3600e3).toISOString();
-      var fr = await sb.from("ward_geofences").select("*"); fences = {}; (fr.data || []).forEach(function (f) { fences[f.ward] = f; });
+      var fa = await fetchAll(function () { return sb.from("ward_geofences").select("*").order("ward_code"); }); fences = {}; fa.forEach(function (f) { fences[f.ward] = f; });
       var pr = await sb.from("profiles").select("id,full_name,role,active"); mapProfiles = {}; (pr.data || []).forEach(function (x) { mapProfiles[x.id] = x; });
       var pts = await fetchAll(function () { return sb.from("locations").select("enumerator_id,created_at,lat,lng,accuracy_m,ward").gte("created_at", since).order("created_at", { ascending: false }); });
       drawMap(pts); fillFenceForm();
@@ -1194,7 +1252,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var bounds = [];
     if (map && mapLayer) {
       mapLayer.clearLayers();
-      Object.keys(fences).forEach(function (w) { var f = fences[w]; L.circle([f.lat, f.lng], { radius: f.radius_m, color: f.enabled ? "#0B5D3B" : "#999", weight: 1.5, fillOpacity: 0.05, dashArray: "5 5" }).bindTooltip(w + " fence").addTo(mapLayer); bounds.push([f.lat, f.lng]); });
+      var showC = $("fcCounty").value;
+      Object.keys(fences).forEach(function (w) { var f = fences[w]; if (f.source !== "admin" && f.county !== showC) return; L.circle([f.lat, f.lng], { radius: f.radius_m, color: f.enabled ? "#0B5D3B" : "#999", weight: 1.5, fillOpacity: 0.05, dashArray: "5 5" }).bindTooltip(w + " fence").addTo(mapLayer); bounds.push([f.lat, f.lng]); });
       rows.concat(contacts).forEach(function (r) { if (r._lat != null) L.circleMarker([r._lat, r._lng], { radius: 3, color: r.outcome ? "#888" : "#0B5D3B", weight: 1, fillOpacity: 0.8 }).bindTooltip((r.outcome ? "Not completed" : "Interview") + " | " + r.ward + " | " + r.interviewer).addTo(mapLayer); });
       Object.keys(by).forEach(function (id) {
         var arr = by[id], last = arr[0], nm = (mapProfiles[id] && mapProfiles[id].full_name) || "Unknown", age = Date.now() - Date.parse(last.created_at);
@@ -1215,19 +1274,23 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       }
       return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td></tr>';
     }).join("") || '<tr><td colspan="3">No enumerators yet.</td></tr>';
-    var missing = wards.filter(function (w) { return !fences[w]; });
-    $("noFence").textContent = missing.length ? "No fence yet: " + missing.join(", ") + "." : "Every ward has a fence.";
+    var missing = wards.filter(function (w) { return !fences[w]; }).length, custom = Object.keys(fences).filter(function (w) { return fences[w].source === "admin"; }).length;
+    $("noFence").textContent = missing ? missing + " of " + wards.length + " wards have no fence yet. Reload this page to create them." : "All " + wards.length + " wards have a fence (" + custom + " set by you, the rest default).";
   }
   function fillFenceForm() {
+    var cs = $("fcCounty"), curC = cs.value;
+    if (!cs.options.length) cs.innerHTML = COUNTIES.map(function (c) { return '<option value="' + esc(c.n) + '">' + esc(c.n) + '</option>'; }).join("");
+    if (curC) cs.value = curC;
     var sel = $("fcWard"), cur = sel.value;
-    sel.innerHTML = wards.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + (fences[w] ? " (fence set)" : "") + "</option>"; }).join("");
-    if (cur && wards.indexOf(cur) > -1) sel.value = cur;
-    var f = fences[sel.value];
-    $("fcLat").value = f ? f.lat : ""; $("fcLng").value = f ? f.lng : ""; $("fcRad").value = f ? f.radius_m : "3000"; $("fcOn").checked = f ? f.enabled : true;
+    sel.innerHTML = (CWARDS[cs.value] || []).map(function (o) { var f = fences[o.label]; return '<option value="' + esc(o.label) + '">' + esc(o.name) + (f && f.source === "admin" ? " (custom)" : "") + "</option>"; }).join("");
+    if (cur && WBL[cur] && WBL[cur].county === cs.value) sel.value = cur;
+    var f2 = fences[sel.value];
+    $("fcLat").value = f2 ? f2.lat : ""; $("fcLng").value = f2 ? f2.lng : ""; $("fcRad").value = f2 ? f2.radius_m : "5000"; $("fcOn").checked = f2 ? f2.enabled : true;
   }
   function bindMapUi() {
     $("mapRange").addEventListener("change", loadMap);
     $("mapRefresh").addEventListener("click", loadMap);
+    $("fcCounty").addEventListener("change", function () { fillFenceForm(); loadMap(); });
     $("fcWard").addEventListener("change", function () { var f = fences[$("fcWard").value]; $("fcLat").value = f ? f.lat : ""; $("fcLng").value = f ? f.lng : ""; $("fcRad").value = f ? f.radius_m : "3000"; $("fcOn").checked = f ? f.enabled : true; if (f && map) map.setView([f.lat, f.lng], 13); });
     $("fcHere").addEventListener("click", function () {
       if (!navigator.geolocation) { toast("This device cannot share its location."); return; }
@@ -1237,21 +1300,23 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("fcSave").addEventListener("click", async function () {
       var la = parseFloat($("fcLat").value), ln = parseFloat($("fcLng").value), rd = parseInt($("fcRad").value, 10);
       if (!(la >= -90 && la <= 90) || !(ln >= -180 && ln <= 180)) { toast("Enter a valid latitude and longitude."); return; }
-      if (!(rd >= 100 && rd <= 50000)) { toast("Radius must be between 100 and 50000 metres."); return; }
-      var r = await sb.from("ward_geofences").upsert({ ward: $("fcWard").value, lat: la, lng: ln, radius_m: rd, enabled: $("fcOn").checked, updated_at: new Date().toISOString() });
+      if (!(rd >= 100 && rd <= 200000)) { toast("Radius must be between 100 and 200000 metres."); return; }
+      var wi = WBL[$("fcWard").value]; if (!wi) { toast("Choose a ward first."); return; }
+      var r = await sb.from("ward_geofences").upsert({ ward_code: wi.code, county: wi.county, constituency: wi.cons, ward: wi.label, lat: la, lng: ln, radius_m: rd, enabled: $("fcOn").checked, source: "admin", updated_at: new Date().toISOString() });
       if (r.error) { toast("Could not save the fence."); return; }
       toast("Fence saved for " + $("fcWard").value + "."); loadMap();
     });
     $("fcDel").addEventListener("click", async function () {
-      var w = $("fcWard").value; if (!fences[w]) { toast("No fence set for this ward."); return; }
-      var r = await sb.from("ward_geofences").delete().eq("ward", w);
-      if (r.error) { toast("Could not remove the fence."); return; }
-      toast("Fence removed. " + w + " now accepts submissions from anywhere."); loadMap();
+      var wi = WBL[$("fcWard").value]; if (!wi) { toast("Choose a ward first."); return; }
+      var r = await sb.from("ward_geofences").upsert({ ward_code: wi.code, county: wi.county, constituency: wi.cons, ward: wi.label, lat: wi.lat, lng: wi.lng, radius_m: wi.r, enabled: true, source: "default", updated_at: new Date().toISOString() });
+      if (r.error) { toast("Could not reset the fence."); return; }
+      toast("Fence reset to the default for " + wi.name + "."); loadMap();
     });
   }
 
   /* ---------- boot ---------- */
   async function init() {
+    await loadAreas();
     ans.interviewer = store("ward-survey-interviewer") || "";
     buildForm();
     $("form").addEventListener("click", onClick);
@@ -1278,13 +1343,6 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       removeArm = null;
       var tgt = rows.concat(contacts).filter(function (r) { return r._id === id; })[0];
       try { if (!tgt) throw new Error("gone"); await db.doc(tgt._path).delete(); toast("Interview removed."); } catch (err) { toast("Could not remove it."); }
-    });
-    $("wardSave").addEventListener("click", async function () {
-      var names = $("wardText").value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 40);
-      if (!names.length || !sb) return;
-      var r = await sb.from("settings").upsert({ key: "wards", value: names });
-      if (r.error) { toast("Only admins can change ward names."); return; }
-      wards = names; $("wardText").value = wards.join("\n"); fillWardSelect(); updateWardFilter(); scheduleRender(); toast("Ward names saved.");
     });
     bindMapUi();
     $("signinForm").addEventListener("submit", doSignIn);
@@ -1356,13 +1414,13 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     try {
       var all = [], from = 0;
       for (;;) {
-        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,outcome,lat,lng,accuracy_m,data").order("created_at", { ascending: true }).range(from, from + 999);
+        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,county,outcome,lat,lng,accuracy_m,data").order("created_at", { ascending: true }).range(from, from + 999);
         if (r.error) throw r.error;
         all = all.concat(r.data); if (r.data.length < 1000) break; from += 1000;
       }
       rows = []; contacts = [];
       all.forEach(function (x) {
-        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng;
+        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.county = x.county || (WBL[x.ward] || {}).county || ""; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng;
         if (x.outcome) { o.outcome = x.outcome; contacts.push(o); } else { delete o.outcome; rows.push(o); }
       });
       $("notices").innerHTML = "";
@@ -1376,19 +1434,17 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("loginView").hidden = true; document.body.classList.remove("auth-out");
     $("who").textContent = lockedName + (isAdmin ? " (admin)" : "");
     ans.interviewer = lockedName; document.body.classList.add("enum-locked");
-    var wr = await sb.from("settings").select("value").eq("key", "wards").maybeSingle();
-    if (wr.data && Array.isArray(wr.data.value) && wr.data.value.length) { wards = wr.data.value; }
-    $("wardText").value = wards.join("\n");
-    fillWardSelect();
+    fillCountySelect(); fillWardSelect();
     if (isAdmin) {
       $("tabBar").style.display = ""; $("adminBox").hidden = false;
-      loadUsers(); await loadRows();
+      loadUsers(); await loadRows(); ensureDefaultFences();
       setInterval(function () { if (document.visibilityState === "visible" && !$("view-res").hidden) loadRows(); }, 20000);
     } else {
       try { var c = await sb.rpc("my_saved_count"); myTotal = c.data || 0; } catch (e) { myTotal = 0; }
     }
-    try { var fr = await sb.from("ward_geofences").select("*"); fences = {}; (fr.data || []).forEach(function (f) { fences[f.ward] = f; }); } catch (e) { fences = {}; }
-    if (!isAdmin) { startTracking(); $("notices").innerHTML = '<div class="banner ok">This app shares your phone location with the survey admin while it is open, and interviews can be saved only inside the ward.</div>'; }
+    fences = {}; fenceSt = {};
+    if (!isAdmin && ans.ward) ensureFence(ans.ward);
+    if (!isAdmin) { startTracking(); $("notices").innerHTML = '<div class="banner ok">This app shares your phone location with the survey admin while it is open, and interviews can be saved only inside the ward you choose.</div>'; }
     updateWardFilter(); refresh(); updateStatus();
   }
   /* ---------- install as an app ---------- */

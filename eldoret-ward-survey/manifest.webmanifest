@@ -1,7 +1,7 @@
 {
-  "name": "Uasin Gishu Ward Voter Survey",
+  "name": "Ward Voter Survey",
   "short_name": "Ward Survey",
-  "description": "Field questionnaire and results for the Uasin Gishu ward voter survey.",
+  "description": "Field questionnaire and results for the ward voter survey.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
