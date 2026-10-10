@@ -228,6 +228,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       <span class="spacer"></span>
       <button class="btn ghost" id="reportBtn" type="button">Download report (PDF)</button>
       <button class="btn ghost" id="exportBtn" type="button">Download data (CSV)</button>
+      <button class="btn ghost" id="jsonBtn" type="button">Download data (JSON)</button>
     </div>
     <div id="results"></div>
     <details class="admin" id="adminBox" hidden>
@@ -793,6 +794,24 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
   }
 
+  async function exportJson() {
+    if (!isAdmin) return;
+    var dl = await getDownloader();
+    var list = wardFilter ? rows.filter(function (r) { return r.ward === wardFilter; }) : rows;
+    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
+    if (!list.length && !cl.length) { toast("Nothing to download yet."); return; }
+    function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.recorded_at = new Date(o.ts).toISOString(); return o; }
+    var out = {
+      survey: "Uasin Gishu Ward Voter Survey",
+      exported_at: new Date().toISOString(),
+      ward_filter: wardFilter || "all wards",
+      counts: { completed: list.length, not_completed: cl.length, approached: list.length + cl.length },
+      interviews: list.map(clean),
+      not_completed: cl.map(clean)
+    };
+    try { await dl.save({ filename: "uasin-gishu-ward-survey-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".json", data: JSON.stringify(out, null, 2) }); }
+    catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
+  }
   async function exportContacts() {
     if (!isAdmin) return;
     var dl = await getDownloader();
@@ -811,7 +830,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
   function getDownloader() {
     return Promise.resolve({ save: async function (r) {
-      var blob = r.data instanceof Blob ? r.data : new Blob([r.data], { type: /\.pdf$/.test(r.filename) ? "application/pdf" : "text/csv;charset=utf-8" });
+      var blob = r.data instanceof Blob ? r.data : new Blob([r.data], { type: /\.pdf$/.test(r.filename) ? "application/pdf" : /\.json$/.test(r.filename) ? "application/json" : "text/csv;charset=utf-8" });
       var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = r.filename; document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
       return { status: "saved" };
@@ -1052,6 +1071,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("tab-res").addEventListener("click", function () { showTab("res"); });
     $("wardFilter").addEventListener("change", function (e) { wardFilter = e.target.value; renderResults(); });
     $("exportBtn").addEventListener("click", exportCsv);
+    $("jsonBtn").addEventListener("click", exportJson);
     $("reportBtn").addEventListener("click", exportReport);
     $("contactExport").addEventListener("click", exportContacts);
     $("stop").addEventListener("click", function (e) { if (e.target && e.target.id === "recordStop") recordContact(); });
