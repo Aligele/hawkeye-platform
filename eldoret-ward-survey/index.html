@@ -165,6 +165,14 @@ details.person summary small { display: block; color: var(--muted); font-size: 1
 .rec-body .sw b { font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: normal; }
 @media (prefers-reduced-motion: no-preference) { .meter > i, .bl-row .t i, .days b { transition: width .3s ease, height .3s ease; } }
 .enum-locked [data-q="interviewer"] { display: none; }
+#map { height: 380px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; z-index: 0; }
+.geo-ok { color: var(--accent); } .geo-bad { color: var(--bad); font-weight: 600; }
+.fl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.fl td, .fl th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.fence-form { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.fence-form .inp, .fence-form select { width: 100%; margin: 0; }
+.fence-form .full { grid-column: 1 / -1; }
 body.auth-out .top, body.auth-out .wrap { display: none; }
 #loginView { max-width: 380px; margin: 12vh auto 0; }
 #loginView h1 { font-size: 24px; margin-bottom: 4px; }
@@ -200,6 +208,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   <div class="tabs" role="tablist" id="tabBar" style="display:none">
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
     <button class="tab" role="tab" id="tab-res" aria-selected="false">Results</button>
+    <button class="tab" role="tab" id="tab-map" aria-selected="false">Field map</button>
   </div>
 </div></div>
 
@@ -216,7 +225,37 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <div id="missing" class="banner bad" hidden></div>
     <div class="submit-bar">
       <button class="btn" id="submit" type="button">Save interview</button>
+      <p class="hint" id="geoHint"></p>
       <p class="hint" id="submitHint"></p>
+    </div>
+  </main>
+
+  <!-- FIELD MAP -->
+  <main id="view-map" hidden>
+    <div class="filter">
+      <label for="mapRange">Show movements for</label>
+      <select id="mapRange"><option value="1">Last hour</option><option value="24" selected>Last 24 hours</option><option value="168">Last 7 days</option></select>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="mapRefresh" type="button">Refresh</button>
+    </div>
+    <div id="map"></div>
+    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. Rings are ward GPS fences. Locations are shared only while the enumerator has the app open.</p>
+    <div class="card" style="margin-top:12px"><h3>Enumerators</h3>
+      <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th></tr></thead><tbody id="fieldList"></tbody></table></div>
+    <div class="card" style="margin-top:12px"><h3>Ward GPS fences</h3>
+      <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Wards with no fence accept submissions from anywhere.</p>
+      <p class="empty" id="noFence" style="margin:6px 0 0"></p>
+      <div class="fence-form">
+        <select id="fcWard" class="inp full"></select>
+        <input class="inp" id="fcLat" placeholder="Latitude" inputmode="decimal">
+        <input class="inp" id="fcLng" placeholder="Longitude" inputmode="decimal">
+        <input class="inp" id="fcRad" placeholder="Radius in metres (e.g. 3000)" inputmode="numeric">
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="fcOn" checked> Enforce this fence</label>
+        <button class="btn ghost" id="fcHere" type="button">Use my location</button>
+        <button class="btn ghost" id="fcPick" type="button">Pick on map</button>
+        <button class="btn ghost" id="fcSave" type="button">Save fence</button>
+        <button class="btn ghost" id="fcDel" type="button">Remove fence</button>
+      </div>
     </div>
   </main>
 
@@ -254,6 +293,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -448,7 +489,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     else if (ans.s2 === "No") msg = "The respondent is under 18. Thank them and end the interview.";
     stop.hidden = !msg;
     if (msg) stop.innerHTML = esc(msg) + ' Record the contact so this person counts in the results.<div style="margin-top:8px"><button type="button" class="btn ghost small" id="recordStop">Record this contact and close</button></div>';
-    var ok = qualified(ans) && canWrite && !!db;
+    var gs = geoState(ans.ward);
+    $("geoHint").innerHTML = gs.msg ? '<span class="' + (gs.ok ? "geo-ok" : "geo-bad") + '">' + esc(gs.msg) + "</span>" : "";
+    var ok = qualified(ans) && canWrite && !!db && gs.ok;
     $("submit").disabled = !ok;
     $("submitHint").textContent = !db ? "Saving is unavailable in this view." : !canWrite ? "You have view-only access. Ask the owner to share this page with you as a Contributor." : savedThisSession ? savedThisSession + " saved on this device today." : "";
   }
@@ -497,10 +540,66 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     return m ? "+254" + m[1] : "";
   }
   var OUTCOME = { refused: "Refused to take part", not_resident: "Not a resident of the ward", under_18: "Under 18" };
+  /* ---------- GPS fence and tracking ---------- */
+  var fences = {}, lastPos = null, geoErr = "", watchId = null, lastLogAt = 0;
+  function rad(x) { return x * Math.PI / 180; }
+  function distM(la1, ln1, la2, ln2) {
+    var h = Math.pow(Math.sin(rad(la2 - la1) / 2), 2) + Math.cos(rad(la1)) * Math.cos(rad(la2)) * Math.pow(Math.sin(rad(ln2 - ln1) / 2), 2);
+    return 2 * 6371000 * Math.asin(Math.sqrt(h));
+  }
+  function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m"; }
+  function fenceFor(w) { var f = fences[w]; return f && f.enabled ? f : null; }
+  function geoState(ward) {
+    var f = fenceFor(ward);
+    if (isAdmin || !f) return { enforced: false, ok: true, msg: "" };
+    if (!lastPos) return { enforced: true, ok: false, msg: geoErr || "Waiting for your phone location..." };
+    if (lastPos.acc > 500) return { enforced: true, ok: false, msg: "GPS signal is weak (accuracy " + Math.round(lastPos.acc) + " m). Move outdoors and wait a moment." };
+    var d = distM(lastPos.lat, lastPos.lng, f.lat, f.lng);
+    if (d > f.radius_m) return { enforced: true, ok: false, msg: "You are " + fmtDist(d) + " from the " + ward + " ward centre. Interviews can be saved only within " + fmtDist(f.radius_m) + "." };
+    return { enforced: true, ok: true, msg: "Location confirmed inside " + ward + " ward." };
+  }
+  function startTracking() {
+    if (isAdmin || watchId !== null) return;
+    if (!navigator.geolocation) { geoErr = "This phone cannot share its location."; return; }
+    watchId = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+  }
+  function onPos(p) {
+    lastPos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy || 0, ts: Date.now() };
+    geoErr = ""; refresh(); logLocation();
+  }
+  function onPosErr(e) {
+    geoErr = e && e.code === 1 ? "Location is blocked. Allow location for this app in your phone settings, then reload." : "Cannot get your location yet. Move outdoors and wait a moment.";
+    refresh();
+  }
+  async function logLocation() {
+    if (isAdmin || !sb || !uid || !lastPos || Date.now() - lastLogAt < 120000) return;
+    lastLogAt = Date.now();
+    try { await sb.from("locations").insert({ lat: lastPos.lat, lng: lastPos.lng, accuracy_m: lastPos.acc, ward: ans.ward || null }); } catch (e) {}
+  }
+  function freshPos() {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) { resolve(); return; }
+      navigator.geolocation.getCurrentPosition(function (p) { onPos(p); resolve(); }, function (e) { onPosErr(e); resolve(); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+    });
+  }
+  function geoFail(msg) { var e = new Error(msg); e.code = "geo"; return e; }
+  async function geoGate(ward) {
+    if (isAdmin) return;
+    await freshPos();
+    var gs = geoState(ward);
+    if (!gs.ok) throw geoFail(gs.msg);
+  }
   async function addResponse(o) {
     if (!uid) { var er = new Error("no user"); er.code = "no_user"; throw er; }
-    var r = await sb.from("interviews").insert({ interviewer: o.interviewer, ward: o.ward, outcome: o.outcome || null, data: o });
-    if (r.error) { var e2 = new Error(r.error.message); e2.code = r.error.code === "42501" ? "invalid_argument" : r.error.code; throw e2; }
+    await geoGate(o.ward);
+    var row = { interviewer: o.interviewer, ward: o.ward, outcome: o.outcome || null, data: o };
+    if (!isAdmin && lastPos) { row.lat = lastPos.lat; row.lng = lastPos.lng; row.accuracy_m = lastPos.acc; }
+    var r = await sb.from("interviews").insert(row);
+    if (r.error) {
+      var m = r.error.message || "";
+      if (/outside_ward|location_required/.test(m)) throw geoFail("The server refused this: your location is outside the ward area.");
+      var e2 = new Error(m); e2.code = r.error.code === "42501" ? "invalid_argument" : r.error.code; throw e2;
+    }
     myTotal++; updateStatus();
   }
   async function recordContact() {
@@ -518,7 +617,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       buildForm();
       toast("Contact recorded. Ready for the next respondent.");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) { toast("Could not record the contact. Try again."); if (btn) btn.disabled = false; }
+    } catch (err) { toast(err && err.code === "geo" ? err.message : "Could not record the contact. Try again."); if (btn) btn.disabled = false; }
   }
 
   async function save() {
@@ -580,7 +679,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     } catch (err) {
       var code = err && err.code;
       box.hidden = false;
-      box.textContent = code === "quota_exceeded" ? "The survey database is full. Ask the owner to export the data and clear space." : code === "invalid_argument" ? "You do not have permission to save. Ask the owner to share this page with you as a Contributor." : "Could not save. Check the connection and try again. Your answers are still on screen.";
+      box.textContent = code === "geo" ? err.message : code === "quota_exceeded" ? "The survey database is full. Ask the owner to export the data and clear space." : code === "invalid_argument" ? "You do not have permission to save. Ask the owner to share this page with you as a Contributor." : "Could not save. Check the connection and try again. Your answers are still on screen.";
     } finally { btn.textContent = "Save interview"; refresh(); }
   }
 
@@ -1051,12 +1150,104 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var toastTimer = 0;
   function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
   function showTab(which) {
-    var res = which === "res" && isAdmin;
-    $("view-int").hidden = res; $("view-res").hidden = !res;
-    $("tab-int").setAttribute("aria-selected", res ? "false" : "true");
-    $("tab-res").setAttribute("aria-selected", res ? "true" : "false");
-    if (res) { renderResults(); loadRows(); }
+    if (which !== "int" && !isAdmin) which = "int";
+    ["int", "res", "map"].forEach(function (k) { $("view-" + k).hidden = k !== which; $("tab-" + k).setAttribute("aria-selected", k === which ? "true" : "false"); });
+    if (which === "res") { renderResults(); loadRows(); }
+    if (which === "map") { initMap(); loadMap(); }
     window.scrollTo(0, 0);
+  }
+
+
+  /* ---------- field map (admin) ---------- */
+  var map = null, mapLayer = null, pickMode = false, mapFitted = false, mapTimer = 0, mapProfiles = {};
+  function ago(ts) { var m = Math.round((Date.now() - ts) / 60000); if (m < 1) return "just now"; if (m < 60) return m + " min ago"; var h = Math.round(m / 60); return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago"; }
+  function initMap() {
+    if (map || !window.L) { if (map) setTimeout(function () { map.invalidateSize(); }, 50); return; }
+    map = L.map("map").setView([0.52, 35.27], 11);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+    mapLayer = L.layerGroup().addTo(map);
+    map.on("click", function (e) { if (!pickMode) return; pickMode = false; $("fcLat").value = e.latlng.lat.toFixed(6); $("fcLng").value = e.latlng.lng.toFixed(6); toast("Centre picked. Set the radius and tap Save fence."); });
+    clearInterval(mapTimer); mapTimer = setInterval(function () { if (document.visibilityState === "visible" && !$("view-map").hidden) loadMap(); }, 30000);
+    setTimeout(function () { map.invalidateSize(); }, 100);
+  }
+  async function fetchAll(make) {
+    var all = [];
+    for (var from = 0; from < 5000; from += 1000) {
+      var r = await make().range(from, from + 999);
+      if (r.error) throw r.error;
+      all = all.concat(r.data); if (r.data.length < 1000) break;
+    }
+    return all;
+  }
+  async function loadMap() {
+    if (!isAdmin || !sb) return;
+    try {
+      var hrs = parseInt($("mapRange").value, 10) || 24, since = new Date(Date.now() - hrs * 3600e3).toISOString();
+      var fr = await sb.from("ward_geofences").select("*"); fences = {}; (fr.data || []).forEach(function (f) { fences[f.ward] = f; });
+      var pr = await sb.from("profiles").select("id,full_name,role,active"); mapProfiles = {}; (pr.data || []).forEach(function (x) { mapProfiles[x.id] = x; });
+      var pts = await fetchAll(function () { return sb.from("locations").select("enumerator_id,created_at,lat,lng,accuracy_m,ward").gte("created_at", since).order("created_at", { ascending: false }); });
+      drawMap(pts); fillFenceForm();
+    } catch (e) { toast("Could not load the field map."); }
+  }
+  function drawMap(pts) {
+    var by = {}; pts.forEach(function (p) { (by[p.enumerator_id] = by[p.enumerator_id] || []).push(p); });
+    var bounds = [];
+    if (map && mapLayer) {
+      mapLayer.clearLayers();
+      Object.keys(fences).forEach(function (w) { var f = fences[w]; L.circle([f.lat, f.lng], { radius: f.radius_m, color: f.enabled ? "#0B5D3B" : "#999", weight: 1.5, fillOpacity: 0.05, dashArray: "5 5" }).bindTooltip(w + " fence").addTo(mapLayer); bounds.push([f.lat, f.lng]); });
+      rows.concat(contacts).forEach(function (r) { if (r._lat != null) L.circleMarker([r._lat, r._lng], { radius: 3, color: r.outcome ? "#888" : "#0B5D3B", weight: 1, fillOpacity: 0.8 }).bindTooltip((r.outcome ? "Not completed" : "Interview") + " | " + r.ward + " | " + r.interviewer).addTo(mapLayer); });
+      Object.keys(by).forEach(function (id) {
+        var arr = by[id], last = arr[0], nm = (mapProfiles[id] && mapProfiles[id].full_name) || "Unknown", age = Date.now() - Date.parse(last.created_at);
+        L.polyline(arr.slice().reverse().map(function (p) { return [p.lat, p.lng]; }), { color: "#4E6E8E", weight: 2, opacity: 0.6 }).addTo(mapLayer);
+        L.circleMarker([last.lat, last.lng], { radius: 9, color: "#fff", weight: 2, fillColor: age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888", fillOpacity: 1 })
+          .bindPopup("<b>" + esc(nm) + "</b><br>" + ago(Date.parse(last.created_at)) + (last.ward ? "<br>Ward: " + esc(last.ward) : "")).bindTooltip(nm, { permanent: true, direction: "top", offset: [0, -8] }).addTo(mapLayer);
+        bounds.push([last.lat, last.lng]);
+      });
+      if (bounds.length && !mapFitted) { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 }); mapFitted = true; }
+    }
+    var enums = Object.keys(mapProfiles).map(function (k) { return mapProfiles[k]; }).filter(function (x) { return x.role === "enumerator" && x.active; });
+    $("fieldList").innerHTML = enums.map(function (u) {
+      var arr = by[u.id], dot = "#888", seen = "No location yet", st = "-";
+      if (arr) {
+        var l = arr[0], age = Date.now() - Date.parse(l.created_at); dot = age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888"; seen = ago(Date.parse(l.created_at));
+        var f = l.ward && fences[l.ward];
+        st = f ? (distM(l.lat, l.lng, f.lat, f.lng) <= f.radius_m ? "Inside " + l.ward : "Outside " + l.ward + " (" + fmtDist(distM(l.lat, l.lng, f.lat, f.lng)) + " from centre)") : (l.ward ? "Working in " + l.ward : "Ward not chosen");
+      }
+      return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td></tr>';
+    }).join("") || '<tr><td colspan="3">No enumerators yet.</td></tr>';
+    var missing = wards.filter(function (w) { return !fences[w]; });
+    $("noFence").textContent = missing.length ? "No fence yet: " + missing.join(", ") + "." : "Every ward has a fence.";
+  }
+  function fillFenceForm() {
+    var sel = $("fcWard"), cur = sel.value;
+    sel.innerHTML = wards.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + (fences[w] ? " (fence set)" : "") + "</option>"; }).join("");
+    if (cur && wards.indexOf(cur) > -1) sel.value = cur;
+    var f = fences[sel.value];
+    $("fcLat").value = f ? f.lat : ""; $("fcLng").value = f ? f.lng : ""; $("fcRad").value = f ? f.radius_m : "3000"; $("fcOn").checked = f ? f.enabled : true;
+  }
+  function bindMapUi() {
+    $("mapRange").addEventListener("change", loadMap);
+    $("mapRefresh").addEventListener("click", loadMap);
+    $("fcWard").addEventListener("change", function () { var f = fences[$("fcWard").value]; $("fcLat").value = f ? f.lat : ""; $("fcLng").value = f ? f.lng : ""; $("fcRad").value = f ? f.radius_m : "3000"; $("fcOn").checked = f ? f.enabled : true; if (f && map) map.setView([f.lat, f.lng], 13); });
+    $("fcHere").addEventListener("click", function () {
+      if (!navigator.geolocation) { toast("This device cannot share its location."); return; }
+      navigator.geolocation.getCurrentPosition(function (p) { $("fcLat").value = p.coords.latitude.toFixed(6); $("fcLng").value = p.coords.longitude.toFixed(6); toast("Your current location is filled in."); }, function () { toast("Could not get your location. Allow location access and try again."); }, { enableHighAccuracy: true, timeout: 15000 });
+    });
+    $("fcPick").addEventListener("click", function () { pickMode = true; if (map) $("map").scrollIntoView({ behavior: "smooth", block: "center" }); toast("Tap the ward centre on the map."); });
+    $("fcSave").addEventListener("click", async function () {
+      var la = parseFloat($("fcLat").value), ln = parseFloat($("fcLng").value), rd = parseInt($("fcRad").value, 10);
+      if (!(la >= -90 && la <= 90) || !(ln >= -180 && ln <= 180)) { toast("Enter a valid latitude and longitude."); return; }
+      if (!(rd >= 100 && rd <= 50000)) { toast("Radius must be between 100 and 50000 metres."); return; }
+      var r = await sb.from("ward_geofences").upsert({ ward: $("fcWard").value, lat: la, lng: ln, radius_m: rd, enabled: $("fcOn").checked, updated_at: new Date().toISOString() });
+      if (r.error) { toast("Could not save the fence."); return; }
+      toast("Fence saved for " + $("fcWard").value + "."); loadMap();
+    });
+    $("fcDel").addEventListener("click", async function () {
+      var w = $("fcWard").value; if (!fences[w]) { toast("No fence set for this ward."); return; }
+      var r = await sb.from("ward_geofences").delete().eq("ward", w);
+      if (r.error) { toast("Could not remove the fence."); return; }
+      toast("Fence removed. " + w + " now accepts submissions from anywhere."); loadMap();
+    });
   }
 
   /* ---------- boot ---------- */
@@ -1069,6 +1260,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("submit").addEventListener("click", save);
     $("tab-int").addEventListener("click", function () { showTab("int"); });
     $("tab-res").addEventListener("click", function () { showTab("res"); });
+    $("tab-map").addEventListener("click", function () { showTab("map"); });
     $("wardFilter").addEventListener("change", function (e) { wardFilter = e.target.value; renderResults(); });
     $("exportBtn").addEventListener("click", exportCsv);
     $("jsonBtn").addEventListener("click", exportJson);
@@ -1094,6 +1286,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       if (r.error) { toast("Only admins can change ward names."); return; }
       wards = names; $("wardText").value = wards.join("\n"); fillWardSelect(); updateWardFilter(); scheduleRender(); toast("Ward names saved.");
     });
+    bindMapUi();
     $("signinForm").addEventListener("submit", doSignIn);
     $("signOut").addEventListener("click", async function () { try { await sb.auth.signOut(); } catch (e) {} location.reload(); });
     $("changePw").addEventListener("click", async function () {
@@ -1163,13 +1356,13 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     try {
       var all = [], from = 0;
       for (;;) {
-        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,outcome,data").order("created_at", { ascending: true }).range(from, from + 999);
+        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,outcome,lat,lng,accuracy_m,data").order("created_at", { ascending: true }).range(from, from + 999);
         if (r.error) throw r.error;
         all = all.concat(r.data); if (r.data.length < 1000) break; from += 1000;
       }
       rows = []; contacts = [];
       all.forEach(function (x) {
-        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.ts = o.ts || Date.parse(x.created_at);
+        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng;
         if (x.outcome) { o.outcome = x.outcome; contacts.push(o); } else { delete o.outcome; rows.push(o); }
       });
       $("notices").innerHTML = "";
@@ -1194,6 +1387,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     } else {
       try { var c = await sb.rpc("my_saved_count"); myTotal = c.data || 0; } catch (e) { myTotal = 0; }
     }
+    try { var fr = await sb.from("ward_geofences").select("*"); fences = {}; (fr.data || []).forEach(function (f) { fences[f.ward] = f; }); } catch (e) { fences = {}; }
+    if (!isAdmin) { startTracking(); $("notices").innerHTML = '<div class="banner ok">This app shares your phone location with the survey admin while it is open, and interviews can be saved only inside the ward.</div>'; }
     updateWardFilter(); refresh(); updateStatus();
   }
   /* ---------- install as an app ---------- */
