@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Eldoret Ward Voter Survey</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: phone-first field tool. A sticky bar switches between the
+   interview form (one tap per answer) and the results board (bars, tallies, quotes). */
+:root {
+  --bg: #F2F5F3;
+  --surface: #FFFFFF;
+  --ink: #14211B;
+  --muted: #5A6A62;
+  --line: #D6DFDA;
+  --accent: #0B5D3B;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E1EFE8;
+  --warn: #9A5B00;
+  --warn-soft: #FBF0DA;
+  --bad: #A8231B;
+  --bad-soft: #FBE7E5;
+  --c1: #0B5D3B;
+  --c2: #4E6E8E;
+  --c3: #C48A14;
+  --track: #E4EBE7;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1713; --surface: #16231D; --ink: #E7F0EB; --muted: #9DB0A6; --line: #2A3B33;
+    --accent: #4CC28B; --accent-ink: #06150E; --accent-soft: #1B3328;
+    --warn: #E8B35A; --warn-soft: #33270F; --bad: #FF8A80; --bad-soft: #3A1A18;
+    --c1: #4CC28B; --c2: #8FB1D4; --c3: #E3A93A; --track: #22332B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1713; --surface: #16231D; --ink: #E7F0EB; --muted: #9DB0A6; --line: #2A3B33;
+  --accent: #4CC28B; --accent-ink: #06150E; --accent-soft: #1B3328;
+  --warn: #E8B35A; --warn-soft: #33270F; --bad: #FF8A80; --bad-soft: #3A1A18;
+  --c1: #4CC28B; --c2: #8FB1D4; --c3: #E3A93A; --track: #22332B;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; padding-inline: 16px; padding-block: 0 48px; }
+.wrap { max-width: 760px; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); padding-block: 12px 10px; margin-inline: -16px; padding-inline: 16px; border-bottom: 1px solid var(--line); }
+.top-in { max-width: 760px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-size: 19px; letter-spacing: -0.01em; }
+.brand span { display: block; font-size: 12px; color: var(--muted); }
+.tabs { display: flex; gap: 4px; background: var(--track); padding: 3px; border-radius: 10px; }
+.tab { font: inherit; font-weight: 600; font-size: 14px; border: 0; background: transparent; color: var(--muted); padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* notices */
+.banner { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-top: 14px; }
+.banner.warn { background: var(--warn-soft); color: var(--warn); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.banner.ok { background: var(--accent-soft); color: var(--accent); }
+
+/* form */
+.sec { margin-top: 22px; }
+.sec-h { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+.sec-h h2 { font-size: 17px; }
+.sec-h small { color: var(--muted); font-size: 12px; }
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 10px; }
+.qh { display: flex; gap: 10px; align-items: flex-start; }
+.qn { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--accent); min-width: 26px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.qt { font-weight: 600; flex: 1; min-width: 0; }
+.req { color: var(--bad); font-style: normal; margin-left: 3px; }
+.note { font-size: 12.5px; color: var(--muted); margin-top: 4px; padding-left: 36px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-left: 36px; }
+.chip { font: inherit; font-size: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 8px 14px; cursor: pointer; min-height: 40px; text-align: left; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip.flag { border-style: dashed; }
+.inp { width: calc(100% - 36px); margin: 10px 0 0 36px; font: inherit; font-size: 15px; color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; }
+textarea.inp { min-height: 76px; resize: vertical; }
+.inp:focus { border-color: var(--accent); outline: none; }
+.script { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: 14px; font-style: italic; }
+.invalid { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.submit-bar { margin-top: 22px; }
+.btn { font: inherit; font-weight: 600; font-size: 16px; border: 0; border-radius: 12px; padding: 14px 18px; background: var(--accent); color: var(--accent-ink); cursor: pointer; width: 100%; min-height: 50px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); width: auto; font-size: 14px; padding: 9px 14px; min-height: 40px; }
+.btn.small { width: auto; font-size: 13px; padding: 6px 10px; min-height: 32px; border-radius: 8px; }
+.hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; text-align: center; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 11px 16px; border-radius: 10px; font-size: 14px; z-index: 20; max-width: calc(100vw - 32px); }
+
+/* results */
+.filter { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.filter label { font-size: 13px; color: var(--muted); }
+.filter select { font: inherit; background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 10px; min-height: 40px; }
+.filter .spacer { flex: 1; }
+.grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+@media (min-width: 640px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.card h3 { font-size: 15px; margin-bottom: 2px; }
+.card .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.big { font-family: var(--font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.big small { font-size: 18px; color: var(--muted); font-weight: 600; }
+.meter { height: 10px; background: var(--track); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+.meter > i { display: block; height: 100%; background: var(--c1); border-radius: 6px; }
+.days { display: flex; align-items: flex-end; gap: 6px; height: 64px; margin-top: 14px; }
+.days div { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.days b { display: block; width: 100%; background: var(--c1); border-radius: 3px 3px 0 0; min-height: 2px; }
+.bl { display: flex; flex-direction: column; gap: 9px; }
+.bl-row .l { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.bl-row .l span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.bl-row .l span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bl-row .t { height: 8px; background: var(--track); border-radius: 5px; margin-top: 4px; overflow: hidden; }
+.bl-row .t i { display: block; height: 100%; border-radius: 5px; background: var(--c1); }
+.bl.c2 .t i { background: var(--c2); }
+.bl.c3 .t i { background: var(--c3); }
+.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+.tile { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+.tile b { display: block; font-family: var(--font-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 12.5px; color: var(--muted); }
+.sw { display: flex; flex-direction: column; gap: 8px; }
+.sw div { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.sw div:last-child { border-bottom: 0; }
+.sw em { font-style: normal; color: var(--muted); }
+.sw b { font-variant-numeric: tabular-nums; }
+.quotes { display: flex; flex-direction: column; gap: 8px; }
+.quote { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; font-size: 14px; }
+.quote small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.empty { color: var(--muted); font-size: 13.5px; }
+.rec { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.rec:last-child { border-bottom: 0; }
+.rec small { color: var(--muted); display: block; }
+details.admin { margin-top: 12px; }
+details.admin summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.tbl { overflow-x: auto; }
+.tbl table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tbl th, .tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.tbl th { color: var(--muted); font-weight: 500; font-size: 12px; }
+details.person { border-bottom: 1px solid var(--line); }
+details.person:last-child { border-bottom: 0; }
+details.person summary { cursor: pointer; padding: 10px 24px 10px 0; list-style: none; font-size: 14px; position: relative; }
+details.person summary::-webkit-details-marker { display: none; }
+details.person summary::after { content: "+"; position: absolute; right: 4px; top: 10px; color: var(--muted); font-size: 18px; line-height: 1; }
+details.person[open] summary::after { content: "\2212"; }
+details.person summary small { display: block; color: var(--muted); font-size: 12.5px; }
+.rec-body { padding: 0 0 12px; }
+.rec-body .sw div { flex-direction: column; gap: 1px; }
+.rec-body .sw b { font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: normal; }
+@media (prefers-reduced-motion: no-preference) { .meter > i, .bl-row .t i, .days b { transition: width .3s ease, height .3s ease; } }
+.enum-locked [data-q="interviewer"] { display: none; }
+body.auth-out .top, body.auth-out .wrap { display: none; }
+#loginView { max-width: 380px; margin: 12vh auto 0; }
+#loginView h1 { font-size: 24px; margin-bottom: 4px; }
+#loginView p { color: var(--muted); margin-bottom: 14px; }
+#loginView label { display: block; font-weight: 600; font-size: 14px; margin-top: 12px; }
+#loginView .inp { width: 100%; margin: 6px 0 0; }
+#loginView .btn { margin-top: 16px; }
+.acct { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.link { font: inherit; background: none; border: 0; color: var(--accent); text-decoration: underline; cursor: pointer; padding: 4px; }
+.team { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.team td, .team th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.teamform { display: grid; gap: 6px; margin-top: 8px; }
+.teamform .inp { width: 100%; margin: 0; }
+</style>
+</head>
+<body class="auth-out">
+
+<section id="loginView" hidden>
+  <h1>Eldoret Ward Voter Survey</h1>
+  <p>Sign in with the username and password from the survey admin.</p>
+  <form id="signinForm" autocomplete="on">
+    <label for="liUser">Username or email</label>
+    <input class="inp" id="liUser" name="username" autocomplete="username" autocapitalize="none" required>
+    <label for="liPass">Password</label>
+    <input class="inp" id="liPass" name="password" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="liBtn">Sign in</button>
+    <div id="liErr" class="banner bad" hidden></div>
+  </form>
+</section>
+<div class="top"><div class="top-in">
+  <div class="brand"><h1>Eldoret Ward Voter Survey</h1><span id="statusLine">Uasin Gishu County &middot; presidential election study</span></div>
+  <div class="acct"><span id="who"></span><button class="link" id="changePw" type="button">Password</button><button class="link" id="signOut" type="button">Sign out</button></div>
+  <div class="tabs" role="tablist" id="tabBar" style="display:none">
+    <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
+    <button class="tab" role="tab" id="tab-res" aria-selected="false">Results</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <div id="notices"></div>
+
+  <!-- INTERVIEW -->
+  <main id="view-int">
+    <div class="script"><b>Read to the respondent:</b> “Hello. My name is __________. I am doing a study on how people in this ward view the next presidential election. It takes about 15 minutes. Your answers are anonymous and confidential. We will not record your name and nobody will be able to tell what you personally said. At the end I will ask whether you are willing to be contacted for future polls. That is optional, and any phone number or email you give is kept separately from your answers. Taking part is voluntary, you may skip any question, and you may stop at any time. Do you agree to take part?”</div>
+    <div class="banner warn" style="margin-top:10px">Read each question exactly as written, in a neutral tone. Do not read out candidate names. Never record a name or ID number. A phone number or email is taken only in the optional last section, with the respondent's agreement.</div>
+    <form id="form" autocomplete="off" novalidate></form>
+    <datalist id="dl-cands"></datalist>
+    <div id="stop" class="banner bad" hidden></div>
+    <div id="missing" class="banner bad" hidden></div>
+    <div class="submit-bar">
+      <button class="btn" id="submit" type="button">Save interview</button>
+      <p class="hint" id="submitHint"></p>
+    </div>
+  </main>
+
+  <!-- RESULTS -->
+  <main id="view-res" hidden>
+    <div class="filter">
+      <label for="wardFilter">Show</label>
+      <select id="wardFilter"><option value="">All wards</option></select>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="reportBtn" type="button">Download report (PDF)</button>
+      <button class="btn ghost" id="exportBtn" type="button">Download data (CSV)</button>
+    </div>
+    <div id="results"></div>
+    <details class="admin" id="adminBox" hidden>
+      <summary>Admin: team logins and ward list</summary>
+      <p class="empty" style="margin:8px 0">Create a login for each enumerator. They see only the questionnaire and never the results.</p>
+      <table class="team"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody id="teamList"></tbody></table>
+      <div class="teamform">
+        <input class="inp" id="tfName" placeholder="Full name">
+        <input class="inp" id="tfLogin" placeholder="Username (letters and numbers) or email" autocapitalize="none">
+        <input class="inp" id="tfPass" placeholder="Password (at least 8 characters)">
+        <select class="inp" id="tfRole"><option value="enumerator">Enumerator (questionnaire only)</option><option value="admin">Admin (sees results)</option></select>
+        <div><button class="btn ghost" id="tfCreate" type="button">Create login</button></div>
+      </div>
+      <p class="empty" style="margin:14px 0 8px">The study wards, one per line. Wards not in the two groups appear under Other wards.</p>
+      <textarea class="inp" id="wardText" style="width:100%;margin:0" rows="10"></textarea>
+      <div style="margin-top:8px"><button class="btn ghost" id="wardSave" type="button">Save ward names</button></div>
+      <p class="empty" style="margin:14px 0 8px">Phone numbers and emails of people who agreed to future polls. They are stored apart from the interview answers, and only admins can see or download them.</p>
+      <div><button class="btn ghost" id="contactExport" type="button">Download re-contact list</button></div>
+    </details>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- constants ---------- */
+  var TARGET_PER_WARD = 50, TARGET_WARDS = 10;
+  var GROUPS = [
+    ["Soy", ["Kipsomba", "Kunet/Kapsuswa", "Soy", "Ziwa", "Kapkures", "Moi's Bridge", "Segero/Barsombe"]],
+    ["Turbo", ["Huruma", "Kamagut", "Kapsaos", "Kiplombe", "Ngenyilel", "Tapsagoi"]],
+    ["Moiben", ["Karuna/Meibeki", "Kimumu", "Moiben", "Sergoit", "Tembelio"]],
+    ["Ainabkoi", ["Ainabkoi/Olare", "Kaptagat", "Kapsoya"]],
+    ["Kapseret", ["Ngeria", "Simat/Kapseret", "Kipkenyo", "Langas", "Megun"]],
+    ["Kesses", ["Tulwet/Chuiyat", "Tarakwa", "Cheptiret/Kipchamo", "Racecourse"]]
+  ];
+  var WARD_CONST = {};
+  GROUPS.forEach(function (g) { g[1].forEach(function (w) { WARD_CONST[w] = g[0]; }); });
+  var CONSENT_YES = "Yes, continue", CONSENT_NO = "No, end the interview";
+  var SAME = "Same candidate / party", DIFF = "Different candidate / party", NOVOTE22 = "Did not vote in 2022", UNDEC_NOW = "Undecided now";
+  var REASON_PAST = ["Economy / cost of living", "Jobs / youth employment", "Fighting corruption", "Security", "Health / education", "Farming / crop prices", "Leader's character / experience", "Party loyalty", "Candidate is from my community / region", "Development record", "Campaign promises", "Advice from family / friends / leaders", "Other", "Cannot remember"];
+  var REASON_NOW = ["Economy / cost of living", "Jobs / youth employment", "Fighting corruption", "Security", "Health", "Education", "Farming / crop prices", "Leader's character / experience", "Party loyalty", "Candidate is from my community / region", "Government's record", "Campaign promises", "Advice from family / friends / leaders", "Want change", "Other"];
+
+  function qualified(a) { return a.consent === CONSENT_YES && a.s1 === "Yes" && a.s2 === "Yes"; }
+  function ifQ(extra) { return function (a) { return qualified(a) && (!extra || extra(a)); }; }
+
+  /* ---------- questionnaire ---------- */
+  var SECTIONS = [
+    { id: "details", title: "Interview details", items: [
+      { id: "interviewer", num: "", text: "Interviewer", type: "interviewer", req: true },
+      { id: "ward", num: "", text: "Ward", type: "ward", req: true },
+      { id: "consent", num: "", text: "Respondent agrees to take part", type: "single", opts: [CONSENT_YES, CONSENT_NO], req: true }
+    ]},
+    { id: "screen", title: "Screening", show: function (a) { return a.consent === CONSENT_YES; }, items: [
+      { id: "s1", num: "S1", text: "Do you live in this ward?", type: "single", opts: ["Yes", "No"], req: true },
+      { id: "s2", num: "S2", text: "Are you 18 years or older?", type: "single", opts: ["Yes", "No"], req: true },
+      { id: "s3", num: "S3", text: "Are you a registered voter?", type: "single", opts: ["Yes", "No", "Not sure"], req: true, show: function (a) { return a.s1 === "Yes" && a.s2 === "Yes"; } }
+    ]},
+    { id: "about", title: "A. About the respondent", show: qualified, items: [
+      { id: "a1", num: "A1", text: "Record the respondent's gender.", note: "Do not ask. Record by observation unless unclear.", type: "single", opts: ["Male", "Female", "Other / prefer not to say"], req: true },
+      { id: "a2", num: "A2", text: "In which age group are you?", type: "single", opts: ["18 - 24", "25 - 34", "35 - 44", "45 - 54", "55 - 64", "65 and above"], req: true },
+      { id: "a3", num: "A3", text: "What is the highest level of education you completed?", type: "single", opts: ["No formal education", "Primary", "Secondary", "College / technical", "University", "Prefer not to say"] },
+      { id: "a4", num: "A4", text: "What is your main source of income or occupation?", type: "single", opts: ["Farming", "Small business / hawking", "Formal employment", "Casual / informal work", "Student", "Unemployed", "Retired", "Other"] },
+      { id: "a5", num: "A5", text: "Which community do you belong to?", note: "Ask politely. The respondent may choose not to say.", type: "single", opts: ["Kikuyu", "Kalenjin", "Luhya", "Luo", "Kisii", "Kamba", "Meru / Embu", "Somali", "Other", "Prefer not to say"] }
+    ]},
+    { id: "past", title: "B. How you voted last time", show: qualified, items: [
+      { id: "b1", num: "B1", text: "Did you vote in the last presidential election in 2022?", note: "If not 'Yes', the next questions in this section are skipped.", type: "single", opts: ["Yes", "No, I was not registered", "No, I was registered but did not vote", "Too young to vote then", "Prefer not to say"], req: true },
+      { id: "b2", num: "B2", text: "Which presidential candidate did you vote for in 2022?", note: "Choose one. Leave blank if the respondent does not want to say.", type: "candsel", opts: ["Raila", "Ruto"], show: ifQ(function (a) { return a.b1 === "Yes"; }) },
+      { id: "b3", num: "B3", text: "What was the main reason you voted for that candidate?", note: "Do not read the list. Tick the closest match.", type: "single", opts: REASON_PAST, show: ifQ(function (a) { return a.b1 === "Yes"; }) },
+      { id: "b4", num: "B4", text: "Looking back, how satisfied are you with your 2022 choice?", type: "single", opts: ["Very satisfied", "Satisfied", "Neither", "Dissatisfied", "Very dissatisfied", "Prefer not to say"], show: ifQ(function (a) { return a.b1 === "Yes"; }) }
+    ]},
+    { id: "now", title: "C. The upcoming election", show: qualified, items: [
+      { id: "c1", num: "C1", text: "How likely are you to vote in the next presidential election?", type: "single", opts: ["Definitely will vote", "Probably will vote", "Might or might not", "Probably will not", "Definitely will not", "Not sure"], req: true },
+      { id: "c2", num: "C2", text: "Who do you want to vote for as president in 2027?", note: "Choose one.", type: "candsel", opts: ["Sifuna", "Kalonzo", "Gachagua", "Matiang'i", "Ruto", "Other candidate"], flags: ["Undecided", "Will not vote", "Prefer not to say"], req: true },
+      { id: "c3", num: "C3", text: "Compared with 2022, is your choice now the same or different?", type: "single", opts: [SAME, DIFF, NOVOTE22, UNDEC_NOW], req: true },
+      { id: "c4", num: "C4", text: "What are the main reasons for your choice this time? (Choose up to three.)", note: "Do not read the list. Tick up to three.", type: "multi", max: 3, opts: REASON_NOW },
+      { id: "c4star", num: "", text: "Which ONE of those is the most important?", type: "star", show: ifQ(function (a) { return (a.c4 || []).length > 1; }) },
+      { id: "c5", num: "C5", text: "What made you change from your 2022 choice?", note: "Choose the main reason.", type: "single", opts: REASON_NOW, show: ifQ(function (a) { return a.c3 === DIFF; }) },
+      { id: "c6", num: "C6", text: "How sure are you about your choice?", type: "single", opts: ["Very sure", "Fairly sure", "Not very sure", "Not sure at all"], req: true },
+      { id: "c7", num: "C7", text: "Is there anything that could make you change your mind before election day?", type: "single", opts: ["Yes", "No", "Not sure"] },
+      { id: "c8", num: "C8", text: "What could make you change your mind?", note: "Choose one.", type: "single", opts: ["The economy gets worse", "A corruption scandal", "The candidates' promises", "Advice from family, friends or leaders", "How the candidate performs", "A change of party or coalition", "The security situation", "Other"], show: ifQ(function (a) { return a.c7 === "Yes"; }) }
+    ]},
+    { id: "issues", title: "D. Issues and information", show: qualified, items: [
+      { id: "d1", num: "D1", text: "What is the single most important problem in this ward that the next president should deal with?", note: "Choose one.", type: "single", opts: ["Unemployment / jobs", "Cost of living", "Corruption", "Insecurity", "Health services", "Education / school fees", "Roads and infrastructure", "Water", "Land and farming / crop prices", "Other"] },
+      { id: "d2", num: "D2", text: "Overall, is the country going in the right direction or the wrong direction?", type: "single", opts: ["Right direction", "Wrong direction", "Not sure"] },
+      { id: "d3", num: "D3", text: "Where do you get most of your information about politics? (Choose up to two.)", type: "multi", max: 2, opts: ["Radio", "Television", "Social media", "Newspapers / websites", "Political rallies", "Church / mosque", "Family and friends", "Community meetings / barazas", "Other"] },
+      { id: "d4", num: "D4", text: "How much do you trust the electoral commission (IEBC) to run a free and fair election?", type: "single", opts: ["A lot", "Some", "Very little", "Not at all", "Not sure"] },
+      { id: "d5", num: "D5", text: "How do you feel about the coming election?", type: "single", opts: ["Hopeful", "Excited", "Worried", "Not interested", "Prefer not to say"] }
+    ]},
+    { id: "community", title: "E. Community and the ward", show: qualified, items: [
+      { id: "e1", num: "E1", text: "How would you describe relations between your community and the Kalenjin community in this county?", type: "single", opts: ["Very good", "Good", "Neither good nor bad", "Poor", "Very poor", "Prefer not to say"], show: ifQ(function (a) { return a.a5 !== "Kalenjin"; }) },
+      { id: "e2", num: "E2", text: "In your view, why has this ward often voted differently from most of the county in recent elections?", note: "Choose the main reason.", type: "single", opts: ["Loyalty to a different party or coalition", "Loyalty to leaders from my community", "Feeling left out of county jobs and projects", "Land and settlement issues", "Past tensions around elections", "Local candidates", "Business and trade interests", "The mixed or urban population of the ward", "Advice from local leaders and elders", "Dissatisfaction with the government's performance", "It has not voted differently", "Do not know", "Other"] },
+      { id: "e3", num: "E3", text: "What would make people in this ward more likely to support the president in 2027? (Choose up to three.)", note: "Do not read the list. Tick up to three.", type: "multi", max: 3, opts: ["Fair share of jobs and appointments", "Security and fair treatment for all communities", "Development projects in the ward", "Lower cost of living", "Land titles and settlement", "A leader from this community in a senior position", "Respect and recognition from leaders", "Keeping promises already made", "Nothing would change it", "Other"] }
+    ]},
+    { id: "future", title: "F. Future polls (optional)", show: qualified, items: [
+      { id: "f1", num: "F1", text: "May we contact you for future opinion polls? Your phone number or email would be kept separately from your answers and used only for polling.", note: "Read this out. Ask for details only if the respondent says Yes.", type: "single", opts: ["Yes", "No"] },
+      { id: "f2", num: "F2", text: "Phone number", note: "Kenyan mobile number, for example 0712 345 678.", type: "tel", show: ifQ(function (a) { return a.f1 === "Yes"; }) },
+      { id: "f3", num: "F3", text: "Email (optional)", type: "email", show: ifQ(function (a) { return a.f1 === "Yes"; }) }
+    ]},
+    { id: "close", title: "Closing (interviewer)", show: qualified, items: [
+      { id: "x1", num: "", text: "Was the respondent alone during the interview?", type: "single", opts: ["Yes", "No, others were listening"] },
+      { id: "x2", num: "", text: "How cooperative was the respondent?", type: "single", opts: ["Very", "Fairly", "Not very"] },
+      { id: "x3", num: "", text: "How did the interview go?", type: "single", opts: ["No problems", "Respondent hesitated", "Respondent was unsure of answers", "Interrupted by others", "Other problem"] }
+    ]}
+  ];
+  var QMAP = {}, QLIST = [];
+  SECTIONS.forEach(function (s) { s.items.forEach(function (q) { q._sec = s; QMAP[q.id] = q; QLIST.push(q); }); });
+
+  /* ---------- state ---------- */
+  var SB_URL = "https://okojbtxueipbuqscgeaq.supabase.co", SB_KEY = "sb_publishable_NB19VS1nnhjOSzj9_cuw-Q_ADULofRn";
+  var sb = null, myTotal = 0;
+  var uid = null, db = null, canWrite = true, isAdmin = false, lockedName = "";
+  var ans = {};
+  var rows = [], contacts = [], openRec = {};
+  var STRATA = [
+    ["Ruto lost or close (shown in 2022 results)", ["Huruma", "Langas", "Kiplombe"]],
+    ["Likely competitive (urban or mixed, to be confirmed)", ["Kapsoya", "Racecourse", "Kimumu", "Tulwet/Chuiyat", "Kipkenyo", "Moi's Bridge", "Ngenyilel"]]
+  ];
+  var WARD_STRAT = {};
+  var interviewers = ["Ali", "Interviewer 1", "Interviewer 2", "Interviewer 3"];
+  var wards = []; STRATA.forEach(function (g) { wards = wards.concat(g[1]); g[1].forEach(function (w) { WARD_STRAT[w] = g[0]; }); });
+  var wardsLoaded = false;
+  var savedThisSession = 0;
+  var wardFilter = "";
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+  /* ---------- form ---------- */
+  function chipHTML(label, extra) { return '<button type="button" class="chip' + (extra || "") + '" data-v="' + esc(label) + '" aria-pressed="false">' + esc(label) + '</button>'; }
+  function qHTML(q) {
+    var h = '<div class="q" data-q="' + q.id + '"><div class="qh"><span class="qn">' + esc(q.num) + '</span><p class="qt">' + esc(q.text) + (q.req ? '<i class="req" title="Required">*</i>' : "") + '</p></div>';
+    if (q.note) h += '<p class="note">' + esc(q.note) + '</p>';
+    if (q.type === "single" || q.type === "multi") h += '<div class="chips">' + q.opts.map(function (o) { return chipHTML(o); }).join("") + '</div>';
+    else if (q.type === "star") h += '<div class="chips"></div>';
+    else if (q.type === "text") h += '<input class="inp" type="text" data-in="' + q.id + '" placeholder="' + esc(q.ph || "") + '" maxlength="120">';
+    else if (q.type === "area") h += '<textarea class="inp" data-in="' + q.id + '" maxlength="600"></textarea>';
+    else if (q.type === "ward") h += '<select class="inp" data-in="ward"></select>';
+    else if (q.type === "tel") h += '<input class="inp" type="tel" inputmode="tel" autocomplete="off" data-in="' + q.id + '" placeholder="07xx xxx xxx" maxlength="20">';
+    else if (q.type === "email") h += '<input class="inp" type="email" inputmode="email" autocomplete="off" autocapitalize="off" data-in="' + q.id + '" placeholder="name@example.com" maxlength="80">';
+    else if (q.type === "interviewer") h += '<select class="inp" data-in="interviewer"></select>';
+    else if (q.type === "candsel") h += '<select class="inp" data-in="' + q.id + '"><option value="">Choose one</option>' + q.opts.concat(q.flags || []).map(function (o) { return '<option value="' + esc(o) + '">' + esc(o) + '</option>'; }).join("") + '</select>';
+    else if (q.type === "cand") h += '<input class="inp" type="text" data-in="' + q.id + '" list="dl-cands" placeholder="Candidate name as the respondent says it" maxlength="80"><div class="chips">' + q.flags.map(function (o) { return chipHTML(o, " flag"); }).join("") + '</div>';
+    return h + '</div>';
+  }
+  function buildForm() {
+    var h = SECTIONS.map(function (s) {
+      return '<section class="sec" data-sec="' + s.id + '"><div class="sec-h"><h2>' + esc(s.title) + '</h2></div>' + s.items.map(qHTML).join("") + '</section>';
+    }).join("");
+    $("form").innerHTML = h;
+    fillWardSelect();
+    fillInterviewerSelect();
+    syncControls();
+    refresh();
+  }
+  function wardOptions(extra) {
+    var list = wards.concat((extra || []).filter(function (w) { return wards.indexOf(w) < 0; }));
+    var names = STRATA.map(function (g) { return g[0]; }).concat(["Other wards"]);
+    var by = {}; names.forEach(function (n) { by[n] = []; });
+    list.forEach(function (w) { by[WARD_STRAT[w] || "Other wards"].push(w); });
+    return names.filter(function (n) { return by[n].length; }).map(function (n) {
+      return '<optgroup label="' + esc(n) + '">' + by[n].map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + (WARD_CONST[w] ? ' (' + esc(WARD_CONST[w]) + ')' : '') + '</option>'; }).join("") + '</optgroup>';
+    }).join("");
+  }
+  function fillInterviewerSelect() {
+    var sel = document.querySelector('select[data-in="interviewer"]');
+    if (!sel || lockedName) return;
+    sel.innerHTML = '<option value="">Choose your name</option>' + interviewers.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
+    if (ans.interviewer && interviewers.indexOf(ans.interviewer) > -1) sel.value = ans.interviewer; else if (ans.interviewer) ans.interviewer = "";
+  }
+  function fillWardSelect() {
+    var sel = document.querySelector('select[data-in="ward"]');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Choose a ward</option>' + wardOptions();
+    if (ans.ward && wards.indexOf(ans.ward) > -1) sel.value = ans.ward; else if (ans.ward) { ans.ward = ""; }
+  }
+  function syncControls() {
+    document.querySelectorAll(".q").forEach(function (el) {
+      var id = el.getAttribute("data-q"), q = QMAP[id], v = ans[id];
+      el.querySelectorAll(".chip").forEach(function (c) {
+        var val = c.getAttribute("data-v"), on = false;
+        if (q.type === "multi") on = (v || []).indexOf(val) > -1;
+        else if (q.type === "cand") on = !!v && v.f === val;
+        else on = v === val;
+        c.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      el.classList.remove("invalid");
+    });
+  }
+  var starKey = "";
+  function refresh() {
+    SECTIONS.forEach(function (s) {
+      var sec = document.querySelector('[data-sec="' + s.id + '"]');
+      if (sec) sec.hidden = s.show ? !s.show(ans) : false;
+    });
+    QLIST.forEach(function (q) {
+      var el = document.querySelector('[data-q="' + q.id + '"]');
+      if (el) el.hidden = q.show ? !q.show(ans) : false;
+    });
+    // star options follow the C4 selections
+    var sel = ans.c4 || [], key = sel.join("|");
+    if (key !== starKey) {
+      starKey = key;
+      if (ans.c4star && sel.indexOf(ans.c4star) < 0) delete ans.c4star;
+      var box = document.querySelector('[data-q="c4star"] .chips');
+      if (box) box.innerHTML = sel.map(function (o) { return chipHTML(o); }).join("");
+      syncControls();
+    }
+    // stop banner
+    var stop = $("stop"), msg = "";
+    if (ans.consent === CONSENT_NO) msg = "The respondent did not agree. Thank them politely and end the interview.";
+    else if (ans.s1 === "No") msg = "The respondent does not live in this ward. Thank them and end the interview.";
+    else if (ans.s2 === "No") msg = "The respondent is under 18. Thank them and end the interview.";
+    stop.hidden = !msg;
+    if (msg) stop.innerHTML = esc(msg) + ' Record the contact so this person counts in the results.<div style="margin-top:8px"><button type="button" class="btn ghost small" id="recordStop">Record this contact and close</button></div>';
+    var ok = qualified(ans) && canWrite && !!db;
+    $("submit").disabled = !ok;
+    $("submitHint").textContent = !db ? "Saving is unavailable in this view." : !canWrite ? "You have view-only access. Ask the owner to share this page with you as a Contributor." : savedThisSession ? savedThisSession + " saved on this device today." : "";
+  }
+
+  function onClick(e) {
+    var chip = e.target.closest(".chip");
+    if (!chip) return;
+    var qEl = chip.closest("[data-q]"), id = qEl.getAttribute("data-q"), q = QMAP[id], v = chip.getAttribute("data-v");
+    if (q.type === "single" || q.type === "star") ans[id] = ans[id] === v ? undefined : v;
+    else if (q.type === "multi") {
+      var arr = (ans[id] || []).slice(), i = arr.indexOf(v);
+      if (i > -1) arr.splice(i, 1);
+      else if (arr.length >= q.max) { toast("Choose up to " + q.max + ". Untick one first."); return; }
+      else arr.push(v);
+      ans[id] = arr;
+    } else if (q.type === "cand") {
+      var cur = ans[id] || { t: "", f: "" };
+      ans[id] = { t: "", f: cur.f === v ? "" : v };
+      qEl.querySelector("input").value = "";
+    }
+    if (ans[id] === undefined) delete ans[id];
+    if (id === "consent" || id === "s1" || id === "s2") { /* keep later answers; they are dropped on save if hidden */ }
+    syncControls(); refresh();
+  }
+  function onInput(e) {
+    var t = e.target, id = t.getAttribute && t.getAttribute("data-in");
+    if (!id) return;
+    var q = QMAP[id];
+    if (q.type === "cand") { ans[id] = { t: t.value, f: t.value.trim() ? "" : ((ans[id] || {}).f || "") }; syncControls(); }
+    else if (q.type === "candsel") { if (!t.value) delete ans[id]; else ans[id] = (q.flags || []).indexOf(t.value) > -1 ? { t: "", f: t.value } : { t: t.value, f: "" }; }
+    else { ans[id] = t.value; if (id === "interviewer") store("ward-survey-interviewer", t.value); }
+    t.classList.remove("invalid");
+    refresh();
+  }
+
+  function filled(q, v) {
+    if (q.type === "cand" || q.type === "candsel") return !!v && !!(v.t.trim() || v.f);
+    if (q.type === "multi") return !!v && v.length > 0;
+    return typeof v === "string" ? v.trim() !== "" : v !== undefined && v !== null;
+  }
+  function visible(q) { return (!q._sec.show || q._sec.show(ans)) && (!q.show || q.show(ans)); }
+
+  function normPhone(v) {
+    var d = String(v).replace(/[\s\-().]/g, "");
+    var m = /^(?:\+?254|0)([17]\d{8})$/.exec(d);
+    return m ? "+254" + m[1] : "";
+  }
+  var OUTCOME = { refused: "Refused to take part", not_resident: "Not a resident of the ward", under_18: "Under 18" };
+  async function addResponse(o) {
+    if (!uid) { var er = new Error("no user"); er.code = "no_user"; throw er; }
+    var r = await sb.from("interviews").insert({ interviewer: o.interviewer, ward: o.ward, outcome: o.outcome || null, data: o });
+    if (r.error) { var e2 = new Error(r.error.message); e2.code = r.error.code === "42501" ? "invalid_argument" : r.error.code; throw e2; }
+    myTotal++; updateStatus();
+  }
+  async function recordContact() {
+    if (!db) return;
+    var outcome = ans.consent === CONSENT_NO ? "refused" : ans.s1 === "No" ? "not_resident" : ans.s2 === "No" ? "under_18" : "";
+    if (!outcome) return;
+    var iv = (ans.interviewer || "").trim();
+    if (!iv || !ans.ward) { toast("Enter your name and choose the ward first."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (!canWrite) { toast("You have view-only access."); return; }
+    var btn = $("recordStop"); if (btn) btn.disabled = true;
+    try {
+      await addResponse({ v: 1, ts: Date.now(), interviewer: iv, ward: ans.ward, outcome: outcome });
+      var keep = { interviewer: ans.interviewer, ward: ans.ward };
+      ans = keep; starKey = "";
+      buildForm();
+      toast("Contact recorded. Ready for the next respondent.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) { toast("Could not record the contact. Try again."); if (btn) btn.disabled = false; }
+  }
+
+  async function save() {
+    if (!db) return;
+    var missing = QLIST.filter(function (q) { return q.req && visible(q) && !filled(q, ans[q.id]); });
+    document.querySelectorAll(".invalid").forEach(function (n) { n.classList.remove("invalid"); });
+    var box = $("missing");
+    if (missing.length) {
+      box.hidden = false;
+      box.textContent = "Please answer: " + missing.map(function (q) { return q.num || q.text.replace(/\.$/, ""); }).join(", ") + ".";
+      missing.forEach(function (q) { var el = document.querySelector('[data-q="' + q.id + '"]'); if (el) el.classList.add("invalid"); });
+      var first = document.querySelector('[data-q="' + missing[0].id + '"]');
+      if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    box.hidden = true;
+    var contact = null;
+    if (ans.f1 === "Yes") {
+      var rawP = (ans.f2 || "").trim(), ph = normPhone(rawP), em = (ans.f3 || "").trim().toLowerCase();
+      var badP = rawP && !ph, badE = em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
+      if (badP || badE || (!ph && !em)) {
+        box.hidden = false;
+        box.textContent = "Enter a valid Kenyan phone number (such as 0712 345 678) or an email address. If the respondent changed their mind, set F1 to No.";
+        ["f2", "f3"].forEach(function (id) { var el = document.querySelector('[data-q="' + id + '"]'); if (el) el.classList.add("invalid"); });
+        var f2 = document.querySelector('[data-q="f2"]'); if (f2) f2.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!uid) {
+        box.hidden = false;
+        box.textContent = "Contact details cannot be saved in this view. Set F1 to No, or open the page while signed in.";
+        return;
+      }
+      contact = { phone: ph, email: em };
+    }
+    var now = new Date();
+    var doc = { v: 1, ts: now.getTime(), interviewer: (ans.interviewer || "").trim(), ward: ans.ward };
+    QLIST.forEach(function (q) {
+      if (q.id === "interviewer" || q.id === "ward" || q.type === "tel" || q.type === "email" || !visible(q)) return;
+      var v = ans[q.id];
+      if (!filled(q, v)) return;
+      if (q.type === "cand" || q.type === "candsel") doc[q.id] = { t: v.t.trim().replace(/\s+/g, " "), f: v.f || "" };
+      else if (typeof v === "string") doc[q.id] = v.trim();
+      else doc[q.id] = v;
+    });
+    var btn = $("submit"); btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      if (contact && !ans._cs) {
+        var rc = await sb.from("recontacts").insert({ ward: ans.ward, by_name: doc.interviewer, phone: contact.phone, email: contact.email });
+        if (rc.error) throw rc.error;
+        ans._cs = true;
+      }
+      await addResponse(doc);
+      savedThisSession++; updateStatus();
+      var keep = { interviewer: ans.interviewer, ward: ans.ward };
+      ans = keep; starKey = "";
+      buildForm();
+      toast("Interview saved. Ready for the next respondent.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      var code = err && err.code;
+      box.hidden = false;
+      box.textContent = code === "quota_exceeded" ? "The survey database is full. Ask the owner to export the data and clear space." : code === "invalid_argument" ? "You do not have permission to save. Ask the owner to share this page with you as a Contributor." : "Could not save. Check the connection and try again. Your answers are still on screen.";
+    } finally { btn.textContent = "Save interview"; refresh(); }
+  }
+
+  /* ---------- results ---------- */
+  function norm(t) { return t.trim().toLowerCase().replace(/\s+/g, " "); }
+  function label(t) { return norm(t).split(" ").map(function (w) { return w ? w[0].toUpperCase() + w.slice(1) : w; }).join(" "); }
+  function pastLabel(r) {
+    if (r.b1 && r.b1 !== "Yes") return null;
+    var c = r.b2; if (!c) return null;
+    return c.t ? label(c.t) : (c.f || null);
+  }
+  function nowLabel(r) { var c = r.c2; if (!c) return null; return c.t ? label(c.t) : (c.f || null); }
+  function pct(n, d) { return d ? Math.round(100 * n / d) : 0; }
+  function tally(list) { var m = {}; list.forEach(function (x) { if (x == null || x === "") return; m[x] = (m[x] || 0) + 1; }); return Object.keys(m).map(function (k) { return [k, m[k]]; }).sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); }); }
+  function tallyMulti(list) { var flat = []; list.forEach(function (arr) { (arr || []).forEach(function (x) { flat.push(x); }); }); return tally(flat); }
+  function bars(entries, base, cls, max) {
+    if (!entries.length) return '<p class="empty">No answers yet.</p>';
+    var top = entries.slice(0, max || 8);
+    var m = Math.max.apply(null, top.map(function (e) { return e[1]; })) || 1;
+    return '<div class="bl ' + (cls || "") + '">' + top.map(function (e) {
+      return '<div class="bl-row"><div class="l"><span>' + esc(e[0]) + '</span><span>' + e[1] + ' &middot; ' + pct(e[1], base) + '%</span></div><div class="t"><i style="width:' + Math.round(100 * e[1] / m) + '%"></i></div></div>';
+    }).join("") + '</div>';
+  }
+  function card(title, sub, body) { return '<div class="card"><h3>' + esc(title) + '</h3>' + (sub ? '<p class="sub">' + esc(sub) + '</p>' : '<div style="height:8px"></div>') + body + '</div>'; }
+  function barsOf(list, field, cls) {
+    var e = tally(list.map(function (r) { return r[field]; }));
+    return bars(e, e.reduce(function (s, x) { return s + x[1]; }, 0), cls, 8);
+  }
+  function quotes(list, field) {
+    var items = list.filter(function (r) { return r[field] && r[field].trim(); }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 6);
+    if (!items.length) return '<p class="empty">Nothing recorded yet.</p>';
+    return '<div class="quotes">' + items.map(function (r) { return '<div class="quote">' + esc(r[field]) + '<small>' + esc(r.ward) + '</small></div>'; }).join("") + '</div>';
+  }
+  function dayLabel(d) { return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]; }
+
+  function answerText(q, v) {
+    if (q.type === "cand" || q.type === "candsel") return v.t ? v.t : v.f;
+    if (Array.isArray(v)) return v.join(", ");
+    return String(v);
+  }
+  function recHTML(r) {
+    var t = new Date(r.ts);
+    var when = t.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    var line, body = "";
+    if (r.outcome) { line = OUTCOME[r.outcome] || r.outcome; body = '<p class="empty" style="padding-bottom:6px">Contact recorded. No questions were asked.</p>'; }
+    else {
+      var past = pastLabel(r), now = nowLabel(r);
+      line = (past || "No 2022 vote named") + " \u2192 " + (now || "no choice recorded");
+      body = '<div class="sw">' + QLIST.filter(function (q) { return q.id !== "interviewer" && q.id !== "ward" && q.id !== "consent" && filled(q, r[q.id]); }).map(function (q) {
+        return '<div><em>' + esc(((q.num ? q.num + " " : "") + q.text).replace(/\s*\(.*\)\s*$/, "")) + '</em><b>' + esc(answerText(q, r[q.id])) + '</b></div>';
+      }).join("") + '</div>';
+    }
+    return '<details class="person" data-id="' + esc(r._id) + '"' + (openRec[r._id] ? " open" : "") + '><summary><b>' + esc(r.ward) + '</b> &middot; ' + esc(r.interviewer) + '<small>' + when + ' &middot; ' + esc(line) + '</small></summary><div class="rec-body">' + body +
+      (isAdmin ? '<div style="margin-top:8px"><button class="btn ghost small" data-rm="' + esc(r._id) + '">' + (removeArm === r._id ? "Confirm remove" : "Remove") + '</button></div>' : "") + '</div></details>';
+  }
+  function everyoneCard(list, cl) {
+    var all = list.concat(cl).sort(function (a, b) { return b.ts - a.ts; });
+    return '<div class="card" style="margin-top:12px"><h3>Everyone approached</h3><p class="sub">' + all.length + ' ' + (all.length === 1 ? "person" : "people") + ', newest first. Tap a row to see the answers.' + (isAdmin ? " Editors can remove a mistaken entry." : "") + '</p>' + all.map(recHTML).join("") + '</div>';
+  }
+
+  var removeArm = null;
+  function renderResults() {
+    var all = rows;
+    var list = wardFilter ? all.filter(function (r) { return r.ward === wardFilter; }) : all;
+    var n = list.length;
+    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
+    var target = (wardFilter ? 1 : TARGET_WARDS) * TARGET_PER_WARD;
+    var h = "";
+    if (!db) { $("results").innerHTML = '<div class="banner warn">Results are unavailable in this view. Sign in to see saved interviews.</div>'; return; }
+    if (n < 30 && n > 0) h += '<div class="banner warn">Only ' + n + ' interview' + (n === 1 ? "" : "s") + ' so far. Treat percentages as early indications.</div>';
+
+    // progress
+    var days = []; for (var i = 6; i >= 0; i--) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ d: d, n: 0 }); }
+    list.forEach(function (r) { var x = new Date(r.ts); x.setHours(0, 0, 0, 0); days.forEach(function (dd) { if (dd.d.getTime() === x.getTime()) dd.n++; }); });
+    var dm = Math.max.apply(null, days.map(function (x) { return x.n; })) || 1;
+    var prog = '<div class="big">' + n + ' <small>of ' + target + ' interviews</small></div><div class="meter"><i style="width:' + Math.min(100, pct(n, target)) + '%"></i></div>' +
+      '<div class="days">' + days.map(function (x) { return '<div><span>' + (x.n || "") + '</span><b style="height:' + Math.round(100 * x.n / dm * 0.7) + '%"></b><span>' + dayLabel(x.d) + '</span></div>'; }).join("") + '</div>';
+    var byWard = tally(all.map(function (r) { return r.ward; }));
+    var wardRows = byWard.length ? '<div class="bl">' + byWard.map(function (e) {
+      return '<div class="bl-row"><div class="l"><span>' + esc(e[0]) + (WARD_CONST[e[0]] ? ' <small style="color:var(--muted)">' + esc(WARD_CONST[e[0]]) + '</small>' : '') + '</span><span>' + e[1] + ' / ' + TARGET_PER_WARD + '</span></div><div class="t"><i style="width:' + Math.min(100, pct(e[1], TARGET_PER_WARD)) + '%"></i></div></div>';
+    }).join("") + '</div>' : '<p class="empty">No ward has an interview yet.</p>';
+    h += '<div class="grid two">' + card("Progress", wardFilter ? wardFilter : "All wards, last 7 days", prog) + card("Interviews by ward", byWard.length + " of " + TARGET_WARDS + " study wards started, target " + TARGET_PER_WARD + " each", wardRows) + '</div>';
+
+    var cRef = cl.filter(function (r) { return r.outcome === "refused"; }).length;
+    var cElig = cl.length - cRef;
+    h += '<div class="card" style="margin-top:12px"><h3>Everyone approached</h3><p class="sub">' + (n + cl.length ? pct(n, n + cl.length) + '% of the people approached completed the interview' : 'No one approached yet') + '</p><div class="tiles">' +
+      '<div class="tile"><b>' + (n + cl.length) + '</b><span>Approached</span></div>' +
+      '<div class="tile"><b>' + n + '</b><span>Completed</span></div>' +
+      '<div class="tile"><b>' + cRef + '</b><span>Refused</span></div>' +
+      '<div class="tile"><b>' + cElig + '</b><span>Not eligible (outside ward or under 18)</span></div></div></div>';
+
+    if (!n) {
+      h += '<div class="card" style="margin-top:12px"><h3>No interviews yet</h3><p class="empty" style="margin-top:6px">Save the first interview from the Interview tab. Candidate choices, reasons and ward totals will appear here as soon as it is saved.</p></div>' + (cl.length ? everyoneCard(list, cl) : "");
+      $("results").innerHTML = h; return;
+    }
+
+    var groups = STRATA.map(function (g) { return [g[0], function (r) { return g[1].indexOf(r.ward) > -1; }]; });
+    groups.push(["Other wards", function (r) { return wards.indexOf(r.ward) < 0; }]);
+    groups.push(["Kikuyu respondents", function (r) { return r.a5 === "Kikuyu"; }]);
+    groups.push(["Other communities", function (r) { return !!r.a5 && r.a5 !== "Kikuyu" && r.a5 !== "Prefer not to say"; }]);
+    var strat = groups.map(function (g) {
+      var sub = list.filter(g[1]);
+      if (!sub.length && g[0] === "Other wards") return "";
+      var nl = sub.map(nowLabel).filter(Boolean), t = tally(nl).slice(0, 3);
+      return '<div class="sw" style="margin-bottom:12px"><div><b>' + esc(g[0]) + '</b><b>' + sub.length + ' interviews</b></div>' +
+        (t.length ? t.map(function (e) { return '<div><em>' + esc(e[0]) + '</em><b>' + pct(e[1], nl.length) + '%</b></div>'; }).join("") : '<div><em>No choices recorded yet</em><b></b></div>') + '</div>';
+    }).join("");
+    h += '<div class="grid">' + card("Choices by group", "Top three choices now, by ward group and by community", strat) + '</div>';
+
+    // vote then and now
+    var pastL = list.map(pastLabel).filter(Boolean), nowL = list.map(nowLabel).filter(Boolean);
+    h += '<div class="grid two">' +
+      card("Voted for in 2022", pastL.length + " who voted and named a choice", bars(tally(pastL), pastL.length, "c2")) +
+      card("Would vote for now", nowL.length + " answers", bars(tally(nowL), nowL.length, "")) + '</div>';
+
+    // change since 2022
+    var c3 = list.map(function (r) { return r.c3; }).filter(Boolean), c3n = c3.length;
+    function cnt(v) { return c3.filter(function (x) { return x === v; }).length; }
+    var tiles = [[SAME, "Same as 2022"], [DIFF, "Changed choice"], [NOVOTE22, "Did not vote in 2022"], [UNDEC_NOW, "Undecided now"]].map(function (p) { return '<div class="tile"><b>' + pct(cnt(p[0]), c3n) + '%</b><span>' + p[1] + ' (' + cnt(p[0]) + ')</span></div>'; }).join("");
+    var sw = {};
+    list.forEach(function (r) {
+      if (r.b1 !== "Yes" || !r.b2 || !r.b2.t || !r.c2 || !r.c2.t) return;
+      var a = norm(r.b2.t), b = norm(r.c2.t); if (a === b) return;
+      var k = label(a) + " → " + label(b); sw[k] = (sw[k] || 0) + 1;
+    });
+    var swE = Object.keys(sw).map(function (k) { return [k, sw[k]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8);
+    var swHtml = swE.length ? '<div class="sw">' + swE.map(function (e) { return '<div><em>' + esc(e[0]) + '</em><b>' + e[1] + '</b></div>'; }).join("") + '</div>' : '<p class="empty">No switches between named candidates yet.</p>';
+    h += '<div class="card" style="margin-top:12px"><h3>Change since 2022</h3><p class="sub">' + c3n + ' answers to C3</p><div class="tiles">' + tiles + '</div></div>';
+    h += '<div class="grid two">' + card("Biggest switches", "From the 2022 choice to the choice now", swHtml) + card("Why they changed", "C5", barsOf(list, "c5", "c3")) + '</div>';
+
+    // reasons
+    var rNow = tallyMulti(list.map(function (r) { return r.c4; })), baseNow = list.filter(function (r) { return r.c4 && r.c4.length; }).length;
+    var star = tally(list.map(function (r) { return r.c4star || ((r.c4 && r.c4.length === 1) ? r.c4[0] : null); })), baseStar = star.reduce(function (s, e) { return s + e[1]; }, 0);
+    var rPast = tally(list.map(function (r) { return r.b3; })), basePast = rPast.reduce(function (s, e) { return s + e[1]; }, 0);
+    h += '<div class="grid two">' +
+      card("Why they choose this time", baseNow + " respondents, up to three reasons each", bars(rNow, baseNow, "", 10)) +
+      card("The most important reason", baseStar + " respondents", bars(star, baseStar, "c3", 10)) + '</div>';
+    h += '<div class="grid">' + card("Why they voted that way in 2022", basePast + " respondents (B3)", bars(rPast, basePast, "c2", 8)) + '</div>';
+
+    // commitment
+    var c1 = tally(list.map(function (r) { return r.c1; })), c6 = tally(list.map(function (r) { return r.c6; })), c7 = tally(list.map(function (r) { return r.c7; }));
+    h += '<div class="grid two">' + card("Likely to vote", "C1", bars(c1, c1.reduce(function (s, e) { return s + e[1]; }, 0), "")) + card("How sure of their choice", "C6", bars(c6, c6.reduce(function (s, e) { return s + e[1]; }, 0), "")) + '</div>';
+    h += '<div class="grid two">' + card("Could change their mind", "C7", bars(c7, c7.reduce(function (s, e) { return s + e[1]; }, 0), "c3")) + card("What could change their mind", "C8", barsOf(list, "c8", "c3")) + '</div>';
+
+    // issues
+    var d3 = tallyMulti(list.map(function (r) { return r.d3; })), d3n = list.filter(function (r) { return r.d3 && r.d3.length; }).length;
+    var d2 = tally(list.map(function (r) { return r.d2; })), d4 = tally(list.map(function (r) { return r.d4; }));
+    h += '<div class="grid two">' + card("Main problem in the ward", "D1", barsOf(list, "d1", "c2")) + card("Where they get political news", d3n + " respondents", bars(d3, d3n, "c2", 9)) + '</div>';
+    h += '<div class="grid two">' + card("Direction of the country", "D2", bars(d2, d2.reduce(function (s, e) { return s + e[1]; }, 0), "c3")) + card("Trust in IEBC", "D4", bars(d4, d4.reduce(function (s, e) { return s + e[1]; }, 0), "")) + '</div>';
+    h += '<div class="grid">' + card("How they feel about the election", "D5", barsOf(list, "d5", "")) + '</div>';
+
+    // community and the ward
+    var e3 = tallyMulti(list.map(function (r) { return r.e3; })), e3n = list.filter(function (r) { return r.e3 && r.e3.length; }).length;
+    h += '<div class="grid two">' + card("Relations with the Kalenjin community", "E1, respondents from other communities", barsOf(list, "e1", "c2")) + card("Why the ward votes differently", "E2", barsOf(list, "e2", "c3")) + '</div>';
+    h += '<div class="grid">' + card("What would make people support the president in 2027", e3n + " respondents, up to three reasons each", bars(e3, e3n, "c3", 10)) + '</div>';
+
+    // who was interviewed
+    function demo(f, t) { var e = tally(list.map(function (r) { return r[f]; })); return card(t, "", bars(e, e.reduce(function (s, x) { return s + x[1]; }, 0), "c2", 8)); }
+    h += '<div class="grid two">' + demo("a1", "Gender") + demo("a2", "Age group") + demo("a3", "Education") + demo("a4", "Occupation") + demo("a5", "Community") + '</div>';
+
+    // interviewers
+    var iv = {};
+    list.concat(cl).forEach(function (r) { var k = norm(r.interviewer || "unknown"); if (!iv[k]) iv[k] = { name: r.interviewer || "Unknown", n: 0, nc: 0, wards: {} }; if (r.outcome) iv[k].nc++; else iv[k].n++; iv[k].wards[r.ward] = 1; });
+    var ivRows = Object.keys(iv).map(function (k) { return iv[k]; }).sort(function (a, b) { return b.n - a.n; });
+    h += '<div class="card" style="margin-top:12px"><h3>Interviewers</h3><p class="sub">Interviews saved per person</p><div class="tbl"><table><thead><tr><th>Interviewer</th><th>Completed</th><th>Not completed</th><th>Wards</th></tr></thead><tbody>' +
+      ivRows.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + x.n + '</td><td>' + x.nc + '</td><td>' + Object.keys(x.wards).length + '</td></tr>'; }).join("") + '</tbody></table></div></div>';
+
+    h += everyoneCard(list, cl);
+
+    $("results").innerHTML = h;
+  }
+
+  var rafId = 0;
+  function scheduleRender() { if (rafId) return; rafId = requestAnimationFrame(function () { rafId = 0; renderResults(); updateStatus(); updateDatalist(); }); }
+  function updateStatus() {
+    if (db && !isAdmin) { $("statusLine").textContent = "Uasin Gishu County \u00b7 " + (lockedName ? lockedName + " \u00b7 " : "") + myTotal + " saved by you"; return; }
+    $("statusLine").textContent = db ? "Uasin Gishu County \u00b7 " + rows.length + " interview" + (rows.length === 1 ? "" : "s") + " saved" + (contacts.length ? ", " + contacts.length + " not completed" : "") : "Uasin Gishu County \u00b7 presidential election study";
+  }
+  function updateDatalist() {
+    var names = {};
+    rows.forEach(function (r) { [r.b2, r.c2].forEach(function (c) { if (c && c.t) names[label(c.t)] = 1; }); });
+    $("dl-cands").innerHTML = Object.keys(names).sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join("");
+  }
+  function updateWardFilter() {
+    var sel = $("wardFilter"), cur = wardFilter;
+    var extra = tally(rows.concat(contacts).map(function (r) { return r.ward; })).map(function (e) { return e[0]; }).filter(function (w) { return wards.indexOf(w) < 0; });
+    sel.innerHTML = '<option value="">All wards</option>' + wardOptions(extra);
+    sel.value = cur;
+  }
+
+  /* ---------- CSV ---------- */
+  function csvCell(v) { var s = v == null ? "" : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  async function exportCsv() {
+    if (!isAdmin) return;
+    var dl = await getDownloader();
+    if (!dl) { toast("Download is not available in this view."); return; }
+    var head = ["Date", "Time", "Interviewer", "Ward", "Status"], cols = [];
+    QLIST.forEach(function (q) {
+      if (q.id === "interviewer" || q.id === "ward" || q.type === "tel" || q.type === "email") return;
+      if (q.type === "cand" || q.type === "candsel") { head.push((q.num || q.id) + " candidate", (q.num || q.id) + " other answer"); cols.push([q, "t"], [q, "f"]); }
+      else { head.push((q.num || q.id) + " " + q.text.replace(/\s*\(.*\)\s*$/, "").slice(0, 60)); cols.push([q, ""]); }
+    });
+    var lines = [head.map(csvCell).join(",")];
+    rows.concat(contacts).sort(function (a, b) { return a.ts - b.ts; }).forEach(function (r) {
+      var t = new Date(r.ts);
+      var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.ward, r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
+      cols.forEach(function (c) { var v = r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
+      lines.push(line.map(csvCell).join(","));
+    });
+    try { await dl.save({ filename: "eldoret-ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
+    catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); }
+  }
+
+  async function exportContacts() {
+    if (!isAdmin) return;
+    var dl = await getDownloader();
+    if (!dl) { toast("Download is not available in this view."); return; }
+    try {
+      var rr = await sb.from("recontacts").select("created_at,ward,phone,email,by_name").order("created_at");
+      if (rr.error) throw rr.error;
+      var all = rr.data.map(function (x) { return { ts: Date.parse(x.created_at), ward: x.ward, phone: x.phone, email: x.email, by: x.by_name }; });
+      if (!all.length) { toast("No one has agreed to future polls yet."); return; }
+      all.sort(function (a, b) { return a.ts - b.ts; });
+      var lines = [["Date", "Ward", "Phone", "Email", "Interviewer"].join(",")];
+      all.forEach(function (r) { lines.push([new Date(r.ts).toLocaleDateString("en-CA"), r.ward, r.phone, r.email, r.by].map(csvCell).join(",")); });
+      await dl.save({ filename: "eldoret-recontact-list-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "\ufeff" + lines.join("\r\n") });
+    } catch (e) { if (!e || e.code !== "declined") toast("Could not load the list. Only admins can download it."); }
+  }
+
+  function getDownloader() {
+    return Promise.resolve({ save: async function (r) {
+      var blob = r.data instanceof Blob ? r.data : new Blob([r.data], { type: /\.pdf$/.test(r.filename) ? "application/pdf" : "text/csv;charset=utf-8" });
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = r.filename; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      return { status: "saved" };
+    } });
+  }
+  /* ---------- PDF report ---------- */
+  function clean(s) {
+    return String(s == null ? "" : s).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/→/g, "to").replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
+  }
+  function ofField(list, f) { var e = tally(list.map(function (r) { return r[f]; })); return { e: e, base: e.reduce(function (s, x) { return s + x[1]; }, 0) }; }
+  function topLine(o, k) { return o.e.slice(0, k || 2).map(function (x) { return x[0] + " (" + pct(x[1], o.base) + "%)"; }).join(", then "); }
+
+  function buildReport(JsPDF, list, cl) {
+    var doc = new JsPDF({ unit: "mm", format: "a4" });
+    var PW = 210, PH = 297, M = 16, CW = PW - 2 * M, y = M;
+    var GREEN = [11, 93, 59], INK = [31, 41, 51], MUTED = [107, 114, 128], TRACK = [228, 235, 231], LIGHT = [238, 245, 241], BLUE = [78, 110, 142], AMBER = [196, 138, 20], WHITE = [255, 255, 255];
+    function setC(c) { doc.setTextColor(c[0], c[1], c[2]); }
+    function fill(c) { doc.setFillColor(c[0], c[1], c[2]); }
+    function ensure(h) { if (y + h > PH - 16) { doc.addPage(); y = M; } }
+    function put(s, x, yy, size, bold, color, align) { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); setC(color || INK); doc.text(clean(s), x, yy, align ? { align: align } : undefined); }
+    function fit(s, w, size, bold) {
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size);
+      s = clean(s); if (doc.getTextWidth(s) <= w) return s;
+      while (s.length > 1 && doc.getTextWidth(s + "...") > w) s = s.slice(0, -1);
+      return s + "...";
+    }
+    function para(s, size, color, bold) {
+      size = size || 10; var lh = size * 0.3528 * 1.4;
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size);
+      var lines = doc.splitTextToSize(clean(s), CW);
+      lines.forEach(function (ln) { ensure(lh); put(ln, M, y + lh * 0.8, size, bold, color); y += lh; });
+    }
+    function bullet(s) {
+      var size = 10, lh = size * 0.3528 * 1.4;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(size);
+      var lines = doc.splitTextToSize(clean(s), CW - 6);
+      ensure(lines.length * lh + 1.5);
+      fill(GREEN); doc.circle(M + 1.2, y + lh * 0.55, 0.7, "F");
+      lines.forEach(function (ln) { put(ln, M + 5, y + lh * 0.8, size, false, INK); y += lh; });
+      y += 1.5;
+    }
+    function h2(t) { ensure(16); y += 4; put(t, M, y + 4, 13, true, GREEN); y += 6.5; doc.setDrawColor(GREEN[0], GREEN[1], GREEN[2]); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 4; }
+    function bars(title, sub, entries, base, color, maxRows) {
+      var rowsN = Math.min(entries.length, maxRows || 8);
+      var need = 11 + Math.max(rowsN, 1) * 6.4 + 3;
+      ensure(need);
+      put(title, M, y + 3.5, 10.5, true, INK); y += 5.2;
+      if (sub) { put(sub, M, y + 2.5, 8.5, false, MUTED); y += 4.2; }
+      if (!rowsN) { put("No answers yet.", M, y + 3.5, 9, false, MUTED); y += 7; return; }
+      var top = entries.slice(0, rowsN), mx = Math.max.apply(null, top.map(function (x) { return x[1]; })) || 1;
+      var lx = M, lw = 68, bx = M + lw + 2, bw = CW - lw - 2 - 26;
+      top.forEach(function (e) {
+        put(fit(e[0], lw, 9, false), lx, y + 3.9, 9, false, INK);
+        fill(TRACK); doc.roundedRect(bx, y + 1.2, bw, 3.4, 1.2, 1.2, "F");
+        fill(color || GREEN); var w = Math.max(1.2, bw * e[1] / mx); doc.roundedRect(bx, y + 1.2, w, 3.4, 1.2, 1.2, "F");
+        put(e[1] + "  (" + pct(e[1], base) + "%)", PW - M, y + 3.9, 9, false, MUTED, "right");
+        y += 6.4;
+      });
+      y += 3;
+    }
+    function table(headers, data, widths) {
+      var rh = 6.6, xs = [M]; widths.forEach(function (w, i) { xs.push(xs[i] + w); });
+      function head() { fill(GREEN); doc.rect(M, y, CW, rh, "F"); headers.forEach(function (h, i) { put(fit(h, widths[i] - 3, 8.5, true), xs[i] + 1.5, y + 4.5, 8.5, true, WHITE); }); y += rh; }
+      ensure(rh * 2 + 2); head();
+      data.forEach(function (row, ri) {
+        if (y + rh > PH - 16) { doc.addPage(); y = M; head(); }
+        if (ri % 2 === 1) { fill(LIGHT); doc.rect(M, y, CW, rh, "F"); }
+        row.forEach(function (c, i) { put(fit(String(c), widths[i] - 3, 9, false), xs[i] + 1.5, y + 4.5, 9, false, INK); });
+        y += rh;
+      });
+      y += 4;
+    }
+
+    /* ----- compute ----- */
+    var n = list.length, approached = n + cl.length;
+    var refused = cl.filter(function (r) { return r.outcome === "refused"; }).length, notElig = cl.length - refused;
+    var ts = list.map(function (r) { return r.ts; }), t0 = new Date(Math.min.apply(null, ts)), t1 = new Date(Math.max.apply(null, ts));
+    function dfmt(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
+    var wardSet = {}; list.forEach(function (r) { wardSet[r.ward] = 1; });
+    var wardsReached = Object.keys(wardSet).length;
+    var nowT = tally(list.map(nowLabel).filter(Boolean)), nowBase = nowT.reduce(function (s, e) { return s + e[1]; }, 0);
+    var pastT = tally(list.map(pastLabel).filter(Boolean)), pastBase = pastT.reduce(function (s, e) { return s + e[1]; }, 0);
+    var c3 = ofField(list, "c3"), c1 = ofField(list, "c1"), c6 = ofField(list, "c6"), c7 = ofField(list, "c7"), c8 = ofField(list, "c8");
+    var d1 = ofField(list, "d1"), d2 = ofField(list, "d2"), d4 = ofField(list, "d4"), d5 = ofField(list, "d5");
+    var e1 = ofField(list, "e1"), e2 = ofField(list, "e2");
+    var rNow = tallyMulti(list.map(function (r) { return r.c4; })), rNowBase = list.filter(function (r) { return r.c4 && r.c4.length; }).length;
+    var star = tally(list.map(function (r) { return r.c4star || ((r.c4 && r.c4.length === 1) ? r.c4[0] : null); })), starBase = star.reduce(function (s, e) { return s + e[1]; }, 0);
+    var rPast = ofField(list, "b3");
+    var d3 = tallyMulti(list.map(function (r) { return r.d3; })), d3Base = list.filter(function (r) { return r.d3 && r.d3.length; }).length;
+    var e3 = tallyMulti(list.map(function (r) { return r.e3; })), e3Base = list.filter(function (r) { return r.e3 && r.e3.length; }).length;
+    var sw = {}; list.forEach(function (r) {
+      if (r.b1 !== "Yes" || !r.b2 || !r.b2.t || !r.c2 || !r.c2.t) return;
+      var a = norm(r.b2.t), b = norm(r.c2.t); if (a === b) return; var k = label(a) + " to " + label(b); sw[k] = (sw[k] || 0) + 1;
+    });
+    var swE = Object.keys(sw).map(function (k) { return [k, sw[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    function share(o, vals) { return pct(o.e.filter(function (x) { return vals.indexOf(x[0]) > -1; }).reduce(function (s, x) { return s + x[1]; }, 0), o.base); }
+    var unsure = nowT.filter(function (x) { return x[0] === "Undecided" || x[0] === "Will not vote"; }).reduce(function (s, x) { return s + x[1]; }, 0);
+    var kik = list.filter(function (r) { return r.a5 === "Kikuyu"; }).length, a5n = list.filter(function (r) { return r.a5; }).length;
+
+    /* ----- title block ----- */
+    fill(GREEN); doc.rect(0, 0, PW, 34, "F");
+    put("Eldoret Ward Voter Survey", M, 15, 21, true, WHITE);
+    put("Summary report | Uasin Gishu County | " + (wardFilter ? wardFilter + " ward" : "All study wards"), M, 23, 10.5, false, WHITE);
+    put("Prepared " + dfmt(new Date()) + " | Fieldwork " + dfmt(t0) + (dfmt(t0) === dfmt(t1) ? "" : " to " + dfmt(t1)), M, 29, 9, false, WHITE);
+    y = 42;
+
+    /* ----- tiles ----- */
+    var tiles = [[String(n), "Interviews completed"], [String(approached), "People approached"], [pct(n, approached) + "%", "Completed of approached"], [String(wardsReached), "Wards reached"]];
+    var tw = (CW - 3 * 4) / 4;
+    tiles.forEach(function (t, i) {
+      var x = M + i * (tw + 4); fill(LIGHT); doc.roundedRect(x, y, tw, 20, 2, 2, "F");
+      put(t[0], x + 4, y + 10, 18, true, GREEN); put(t[1], x + 4, y + 16, 8, false, MUTED);
+    });
+    y += 26;
+    if (n < 30) { para("Small sample: with " + n + " interview" + (n === 1 ? "" : "s") + ", treat every percentage in this report as an early indication only.", 9.5, [154, 91, 0], true); y += 2; }
+
+    /* ----- key findings ----- */
+    h2("Key findings");
+    bullet("Fieldwork: " + n + " completed interview" + (n === 1 ? "" : "s") + " in " + wardsReached + " ward" + (wardsReached === 1 ? "" : "s") + ". " + approached + " people were approached: " + refused + " refused and " + notElig + " were not eligible (outside the ward or under 18).");
+    if (nowBase) bullet("Choice for 2027: " + topLine({ e: nowT, base: nowBase }, 2) + " of " + nowBase + " who answered. " + (unsure ? pct(unsure, nowBase) + "% are undecided or will not vote." : ""));
+    if (c3.base) bullet("Compared with 2022: " + share(c3, [SAME]) + "% keep the same choice, " + share(c3, [DIFF]) + "% changed, " + share(c3, [NOVOTE22]) + "% did not vote in 2022 and " + share(c3, [UNDEC_NOW]) + "% are undecided now." + (swE.length ? " The most common switch is " + swE[0][0] + " (" + swE[0][1] + ")." : ""));
+    if (rNowBase) bullet("Reasons for their 2027 choice: " + topLine({ e: rNow, base: rNowBase }, 3) + " of respondents" + (starBase ? ". The single most important reason is most often " + star[0][0] + "." : "."));
+    if (c1.base) bullet("Turnout intention: " + share(c1, ["Definitely will vote", "Probably will vote"]) + "% will definitely or probably vote. " + share(c6, ["Very sure", "Fairly sure"]) + "% are very or fairly sure of their choice.");
+    if (d1.base) bullet("Main problem in the ward: " + topLine(d1, 2) + ".");
+    if (a5n) bullet("Community: " + kik + " respondent" + (kik === 1 ? " is" : "s are") + " Kikuyu (" + pct(kik, a5n) + "% of those who answered). " + (e1.base ? "Relations with the Kalenjin community are most often described as " + e1.e[0][0].toLowerCase() + " (" + pct(e1.e[0][1], e1.base) + "%)." : ""));
+    if (e2.base) bullet("Why the ward votes differently from most of the county: " + topLine(e2, 2) + ".");
+    if (e3Base) bullet("What would make people more likely to support the president in 2027: " + topLine({ e: e3, base: e3Base }, 3) + ".");
+
+    /* ----- fieldwork ----- */
+    h2("Fieldwork progress");
+    var tot = {}; list.forEach(function (r) { tot[r.ward] = (tot[r.ward] || 0) + 1; });
+    var wardNames = wards.concat(Object.keys(tot).filter(function (w) { return wards.indexOf(w) < 0; }));
+    if (wardFilter) wardNames = [wardFilter];
+    table(["Ward", "Constituency", "Group", "Done", "Target"], wardNames.map(function (w) {
+      var g = WARD_STRAT[w] || "Other"; g = g.indexOf("lost or close") > -1 ? "Ruto lost or close" : g.indexOf("competitive") > -1 ? "Likely competitive" : g;
+      return [w, WARD_CONST[w] || "-", g, tot[w] || 0, TARGET_PER_WARD];
+    }), [40, 34, 50, 25, 25]);
+    var iv = {}; list.concat(cl).forEach(function (r) { var k = norm(r.interviewer || "unknown"); if (!iv[k]) iv[k] = { name: r.interviewer || "Unknown", n: 0, nc: 0 }; if (r.outcome) iv[k].nc++; else iv[k].n++; });
+    var ivRows = Object.keys(iv).map(function (k) { return iv[k]; }).sort(function (a, b) { return b.n - a.n; });
+    table(["Interviewer", "Completed", "Not completed"], ivRows.map(function (x) { return [x.name, x.n, x.nc]; }), [80, 47, 47]);
+
+    /* ----- vote choices ----- */
+    h2("How people voted and how they will vote");
+    bars("Voted for in 2022", pastBase + " respondents who voted and named a choice (B2)", pastT, pastBase, BLUE, 8);
+    bars("Would vote for in 2027", nowBase + " answers (C2)", nowT, nowBase, GREEN, 9);
+    bars("Compared with 2022", c3.base + " answers (C3)", c3.e, c3.base, GREEN, 4);
+    if (swE.length) { ensure(30); put("Biggest switches from the 2022 choice", M, y + 3.5, 10.5, true, INK); y += 6; table(["From and to", "People"], swE.slice(0, 8).map(function (e) { return [e[0], e[1]]; }), [140, 34]); }
+    bars("Reasons for the 2027 choice (up to three each)", rNowBase + " respondents (C4)", rNow, rNowBase, GREEN, 10);
+    bars("Most important reason", starBase + " respondents (C4)", star, starBase, AMBER, 8);
+    bars("Why they voted that way in 2022", rPast.base + " respondents (B3)", rPast.e, rPast.base, BLUE, 8);
+    bars("Why they changed their choice", "C5", ofField(list, "c5").e, ofField(list, "c5").base, AMBER, 8);
+
+    /* ----- by group ----- */
+    h2("Choices by ward group and community");
+    var groups = STRATA.map(function (g) { return [g[0], function (r) { return g[1].indexOf(r.ward) > -1; }]; });
+    groups.push(["Other wards", function (r) { return wards.indexOf(r.ward) < 0; }]);
+    groups.push(["Kikuyu respondents", function (r) { return r.a5 === "Kikuyu"; }]);
+    groups.push(["Other communities", function (r) { return !!r.a5 && r.a5 !== "Kikuyu" && r.a5 !== "Prefer not to say"; }]);
+    var grows = []; groups.forEach(function (g) {
+      var sub = list.filter(g[1]); if (!sub.length && g[0] === "Other wards") return;
+      var nl = tally(sub.map(nowLabel).filter(Boolean)), b = nl.reduce(function (s, e) { return s + e[1]; }, 0);
+      grows.push([g[0], sub.length, nl[0] ? nl[0][0] + " " + pct(nl[0][1], b) + "%" : "-", nl[1] ? nl[1][0] + " " + pct(nl[1][1], b) + "%" : "-"]);
+    });
+    table(["Group", "Interviews", "Top choice", "Second choice"], grows, [62, 24, 44, 44]);
+
+    /* ----- commitment & issues ----- */
+    h2("Commitment, issues and information");
+    bars("Likelihood of voting", "C1", c1.e, c1.base, GREEN, 6);
+    bars("How sure of their choice", "C6", c6.e, c6.base, GREEN, 4);
+    bars("Could change their mind", "C7", c7.e, c7.base, AMBER, 3);
+    bars("What could change their mind", "C8", c8.e, c8.base, AMBER, 8);
+    bars("Most important problem in the ward", "D1", d1.e, d1.base, GREEN, 9);
+    bars("Direction of the country", "D2", d2.e, d2.base, BLUE, 3);
+    bars("Where they get political news (up to two each)", d3Base + " respondents (D3)", d3, d3Base, BLUE, 9);
+    bars("Trust in the electoral commission (IEBC)", "D4", d4.e, d4.base, GREEN, 5);
+    bars("How they feel about the coming election", "D5", d5.e, d5.base, BLUE, 5);
+
+    /* ----- community ----- */
+    h2("Community and the ward");
+    bars("Relations with the Kalenjin community", "E1, respondents from other communities", e1.e, e1.base, GREEN, 6);
+    bars("Why the ward votes differently from most of the county", "E2", e2.e, e2.base, AMBER, 10);
+    bars("What would make people support the president in 2027 (up to three each)", e3Base + " respondents (E3)", e3, e3Base, GREEN, 10);
+
+    /* ----- who was interviewed ----- */
+    h2("Who was interviewed");
+    ["a1:Gender", "a2:Age group", "a3:Education", "a4:Occupation", "a5:Community"].forEach(function (p) {
+      var f = p.split(":"), o = ofField(list, f[0]); bars(f[1], "", o.e, o.base, BLUE, 10);
+    });
+
+    /* ----- notes ----- */
+    h2("Notes on the data");
+    para("Percentages are shares of the respondents who answered each question, so bases differ between charts. The ward groups were chosen to compare places where the president lost or the result was close, so the figures describe these wards and do not represent the whole county. Respondents were approached by interviewers and not drawn at random. Answers are anonymous: no names or ID numbers are recorded, and phone numbers or emails given for future polls are stored separately and are not part of this report.", 9.5, INK);
+
+    /* ----- footers ----- */
+    var pages = doc.getNumberOfPages();
+    for (var i = 1; i <= pages; i++) {
+      doc.setPage(i); put("Eldoret ward voter survey | " + (wardFilter || "All wards") + " | " + n + " interviews", M, PH - 8, 8, false, MUTED); put("Page " + i + " of " + pages, PW - M, PH - 8, 8, false, MUTED, "right");
+    }
+    return doc;
+  }
+
+  async function exportReport() {
+    if (!isAdmin) return;
+    var dl = await getDownloader();
+    if (!dl) { toast("Download is not available in this view."); return; }
+    var lib = window.jspdf && window.jspdf.jsPDF;
+    if (!lib) { toast("The PDF tool did not load. Check the connection and reload the page."); return; }
+    var list = wardFilter ? rows.filter(function (r) { return r.ward === wardFilter; }) : rows;
+    var cl = wardFilter ? contacts.filter(function (r) { return r.ward === wardFilter; }) : contacts;
+    if (!list.length) { toast("Save at least one interview first."); return; }
+    var doc;
+    try { doc = buildReport(lib, list, cl); } catch (e) { try { console.error(e); } catch (x) {} toast("Could not build the report."); return; }
+    try { await dl.save({ filename: "eldoret-ward-survey-report-" + new Date().toLocaleDateString("en-CA") + (wardFilter ? "-" + wardFilter.replace(/[^A-Za-z0-9]+/g, "-") : "") + ".pdf", data: doc.output("arraybuffer") }); }
+    catch (e) { if (!e || e.code !== "declined") toast("Could not save the report."); }
+  }
+
+  /* ---------- misc ---------- */
+  var toastTimer = 0;
+  function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
+  function showTab(which) {
+    var res = which === "res" && isAdmin;
+    $("view-int").hidden = res; $("view-res").hidden = !res;
+    $("tab-int").setAttribute("aria-selected", res ? "false" : "true");
+    $("tab-res").setAttribute("aria-selected", res ? "true" : "false");
+    if (res) { renderResults(); loadRows(); }
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- boot ---------- */
+  async function init() {
+    ans.interviewer = store("ward-survey-interviewer") || "";
+    buildForm();
+    $("form").addEventListener("click", onClick);
+    $("form").addEventListener("input", onInput);
+    $("form").addEventListener("change", onInput);
+    $("submit").addEventListener("click", save);
+    $("tab-int").addEventListener("click", function () { showTab("int"); });
+    $("tab-res").addEventListener("click", function () { showTab("res"); });
+    $("wardFilter").addEventListener("change", function (e) { wardFilter = e.target.value; renderResults(); });
+    $("exportBtn").addEventListener("click", exportCsv);
+    $("reportBtn").addEventListener("click", exportReport);
+    $("contactExport").addEventListener("click", exportContacts);
+    $("stop").addEventListener("click", function (e) { if (e.target && e.target.id === "recordStop") recordContact(); });
+    $("results").addEventListener("toggle", function (e) {
+      var d = e.target; if (!d || !d.classList || !d.classList.contains("person")) return;
+      var id = d.getAttribute("data-id"); if (d.open) openRec[id] = 1; else delete openRec[id];
+    }, true);
+    $("results").addEventListener("click", async function (e) {
+      var b = e.target.closest("[data-rm]"); if (!b || !db) return;
+      var id = b.getAttribute("data-rm");
+      if (removeArm !== id) { removeArm = id; renderResults(); return; }
+      removeArm = null;
+      var tgt = rows.concat(contacts).filter(function (r) { return r._id === id; })[0];
+      try { if (!tgt) throw new Error("gone"); await db.doc(tgt._path).delete(); toast("Interview removed."); } catch (err) { toast("Could not remove it."); }
+    });
+    $("wardSave").addEventListener("click", async function () {
+      var names = $("wardText").value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 40);
+      if (!names.length || !sb) return;
+      var r = await sb.from("settings").upsert({ key: "wards", value: names });
+      if (r.error) { toast("Only admins can change ward names."); return; }
+      wards = names; $("wardText").value = wards.join("\n"); fillWardSelect(); updateWardFilter(); scheduleRender(); toast("Ward names saved.");
+    });
+    $("signinForm").addEventListener("submit", doSignIn);
+    $("signOut").addEventListener("click", async function () { try { await sb.auth.signOut(); } catch (e) {} location.reload(); });
+    $("changePw").addEventListener("click", async function () {
+      var pw = window.prompt("New password (at least 8 characters)"); if (!pw) return;
+      if (pw.length < 8) { toast("Password must be at least 8 characters."); return; }
+      var r = await sb.auth.updateUser({ password: pw }); toast(r.error ? "Could not change the password." : "Password changed.");
+    });
+    $("tfCreate").addEventListener("click", async function () {
+      var btn = $("tfCreate"); btn.disabled = true;
+      try {
+        await callAdmin({ action: "create", full_name: $("tfName").value, login: $("tfLogin").value, password: $("tfPass").value, role: $("tfRole").value });
+        ["tfName", "tfLogin", "tfPass"].forEach(function (id) { $(id).value = ""; });
+        toast("Login created. Give the person their username and password."); loadUsers();
+      } catch (e) { toast(e.message || "Could not create the login."); } finally { btn.disabled = false; }
+    });
+    $("teamList").addEventListener("click", async function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      var id = b.getAttribute("data-id");
+      try {
+        if (b.getAttribute("data-act") === "toggle") { await callAdmin({ action: "set_active", id: id, active: b.getAttribute("data-on") === "1" }); loadUsers(); }
+        else if (b.getAttribute("data-act") === "reset") {
+          var pw = window.prompt("New password for this person (at least 8 characters)"); if (!pw) return;
+          await callAdmin({ action: "reset_password", id: id, password: pw }); toast("Password reset.");
+        }
+      } catch (err) { toast(err.message || "Could not do that."); }
+    });
+
+    if (!window.supabase) { showLogin("The page could not load its tools. Check the connection and reload."); return; }
+    sb = window.supabase.createClient(SB_URL, SB_KEY);
+    var ses = await sb.auth.getSession();
+    if (ses.data && ses.data.session) boot(ses.data.session.user); else showLogin("");
+  }
+
+  function showLogin(msg) {
+    document.body.classList.add("auth-out"); $("loginView").hidden = false;
+    var er = $("liErr"); er.hidden = !msg; er.textContent = msg || "";
+  }
+  async function doSignIn(e) {
+    e.preventDefault();
+    var u = $("liUser").value.trim().toLowerCase(); if (u.indexOf("@") < 0) u += "@survey.local";
+    var btn = $("liBtn"); btn.disabled = true; btn.textContent = "Signing in...";
+    try {
+      var r = await sb.auth.signInWithPassword({ email: u, password: $("liPass").value });
+      if (r.error || !r.data.user) { showLogin("Wrong username or password."); return; }
+      $("liPass").value = "";
+      await boot(r.data.user);
+    } catch (err) { showLogin("Could not sign in. Check the connection and try again."); }
+    finally { btn.disabled = false; btn.textContent = "Sign in"; }
+  }
+  async function callAdmin(body) {
+    var r = await sb.functions.invoke("manage-users", { body: body });
+    if (r.error) { var msg = r.error.message; try { var j = await r.error.context.json(); msg = j.error || msg; } catch (e) {} throw new Error(msg); }
+    return r.data;
+  }
+  async function loadUsers() {
+    try {
+      var d = await callAdmin({ action: "list" });
+      $("teamList").innerHTML = d.users.map(function (u) {
+        return '<tr><td>' + esc(u.full_name) + (u.active ? "" : " (disabled)") + '</td><td>' + esc(u.login) + '</td><td>' + esc(u.role) + '</td><td>' +
+          (u.id === uid ? "" : '<button class="link" data-act="toggle" data-id="' + esc(u.id) + '" data-on="' + (u.active ? "0" : "1") + '">' + (u.active ? "Disable" : "Enable") + '</button>') +
+          '<button class="link" data-act="reset" data-id="' + esc(u.id) + '">Reset password</button></td></tr>';
+      }).join("");
+    } catch (e) { $("teamList").innerHTML = '<tr><td colspan="4">Could not load the team list.</td></tr>'; }
+  }
+  async function loadRows() {
+    if (!isAdmin || !sb) return;
+    try {
+      var all = [], from = 0;
+      for (;;) {
+        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,outcome,data").order("created_at", { ascending: true }).range(from, from + 999);
+        if (r.error) throw r.error;
+        all = all.concat(r.data); if (r.data.length < 1000) break; from += 1000;
+      }
+      rows = []; contacts = [];
+      all.forEach(function (x) {
+        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.ts = o.ts || Date.parse(x.created_at);
+        if (x.outcome) { o.outcome = x.outcome; contacts.push(o); } else { delete o.outcome; rows.push(o); }
+      });
+      $("notices").innerHTML = "";
+      updateWardFilter(); scheduleRender();
+    } catch (e) { $("notices").innerHTML = '<div class="banner bad">Could not load saved interviews. Reload the page to try again.</div>'; }
+  }
+  async function boot(user) {
+    var pr = await sb.from("profiles").select("full_name,role,active").eq("id", user.id).maybeSingle();
+    if (pr.error || !pr.data || !pr.data.active) { try { await sb.auth.signOut(); } catch (e) {} showLogin("This account is not active. Ask the survey admin."); return; }
+    uid = user.id; db = sb; canWrite = true; isAdmin = pr.data.role === "admin"; lockedName = pr.data.full_name;
+    $("loginView").hidden = true; document.body.classList.remove("auth-out");
+    $("who").textContent = lockedName + (isAdmin ? " (admin)" : "");
+    ans.interviewer = lockedName; document.body.classList.add("enum-locked");
+    var wr = await sb.from("settings").select("value").eq("key", "wards").maybeSingle();
+    if (wr.data && Array.isArray(wr.data.value) && wr.data.value.length) { wards = wr.data.value; }
+    $("wardText").value = wards.join("\n");
+    fillWardSelect();
+    if (isAdmin) {
+      $("tabBar").style.display = ""; $("adminBox").hidden = false;
+      loadUsers(); await loadRows();
+      setInterval(function () { if (document.visibilityState === "visible" && !$("view-res").hidden) loadRows(); }, 20000);
+    } else {
+      try { var c = await sb.rpc("my_saved_count"); myTotal = c.data || 0; } catch (e) { myTotal = 0; }
+    }
+    updateWardFilter(); refresh(); updateStatus();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
