@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0B5D3B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ward Survey">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Eldoret Ward Voter Survey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -188,7 +196,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 </section>
 <div class="top"><div class="top-in">
   <div class="brand"><h1>Eldoret Ward Voter Survey</h1><span id="statusLine">Uasin Gishu County &middot; presidential election study</span></div>
-  <div class="acct"><span id="who"></span><button class="link" id="changePw" type="button">Password</button><button class="link" id="signOut" type="button">Sign out</button></div>
+  <div class="acct"><span id="who"></span><button class="link" id="installBtn" type="button" hidden>Install app</button><button class="link" id="changePw" type="button">Password</button><button class="link" id="signOut" type="button">Sign out</button></div>
   <div class="tabs" role="tablist" id="tabBar" style="display:none">
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
     <button class="tab" role="tab" id="tab-res" aria-selected="false">Results</button>
@@ -1168,6 +1176,18 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     updateWardFilter(); refresh(); updateStatus();
   }
+  /* ---------- install as an app ---------- */
+  var installEvt = null;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installEvt = e; $("installBtn").hidden = false; });
+  window.addEventListener("appinstalled", function () { installEvt = null; $("installBtn").hidden = true; toast("App installed."); });
+  $("installBtn").addEventListener("click", async function () {
+    if (!installEvt) return;
+    installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {}
+    installEvt = null; $("installBtn").hidden = true;
+  });
+  var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (isIos && !standalone) { $("installBtn").hidden = false; $("installBtn").addEventListener("click", function () { toast("In Safari tap Share, then Add to Home Screen."); }); }
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   init();
 })();
 </script>
