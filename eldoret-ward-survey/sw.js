@@ -1,5 +1,5 @@
 /* Caches the app shell so the page opens on a weak connection. Data calls to Supabase are never cached. */
-const CACHE = "ward-survey-v10";
+const CACHE = "ward-survey-v11";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./kenya-areas.json", "./kenya-wards.json", "./icons/icon-192.png", "./icons/icon-512.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {

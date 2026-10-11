@@ -705,7 +705,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   function geoFail(msg) { var e = new Error(msg); e.code = "geo"; return e; }
   async function geoGate(ward) {
-    if (isAdmin) return;
+    if (isAdmin) { await freshPos(); return; }
     await freshPos();
     var gs = geoState(ward);
     if (!gs.ok) throw geoFail(gs.msg);
@@ -716,7 +716,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     await geoGate(o.ward);
     var wi = WBL[o.ward] || {};
     var row = { interviewer: o.interviewer, ward: o.ward, county: o.county || wi.county || null, constituency: wi.cons || null, ward_code: wi.code || null, outcome: o.outcome || null, data: o };
-    if (!isAdmin && lastPos) { row.lat = lastPos.lat; row.lng = lastPos.lng; row.accuracy_m = lastPos.acc; }
+    if (lastPos) { row.lat = lastPos.lat; row.lng = lastPos.lng; row.accuracy_m = lastPos.acc; }
     var r = await sb.from("interviews").insert(row);
     if (r.error) {
       var m = r.error.message || "";
@@ -857,7 +857,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         return '<div><em>' + esc(((q.num ? q.num + " " : "") + q.text).replace(/\s*\(.*\)\s*$/, "")) + '</em><b>' + esc(answerText(q, r[q.id])) + '</b></div>';
       }).join("") + '</div>';
     }
-    return '<details class="person" data-id="' + esc(r._id) + '"' + (openRec[r._id] ? " open" : "") + '><summary><b>' + esc(r.ward) + '</b> &middot; ' + esc(r.interviewer) + '<small>' + when + ' &middot; ' + esc(line) + '</small></summary><div class="rec-body">' + body +
+    var locLine = r._lat != null ? '<div class="sw" style="margin-top:8px"><div><em>Recorded at</em><b>' + esc(r._lat.toFixed(5) + ", " + r._lng.toFixed(5)) + (r._acc != null ? " (accuracy " + Math.round(r._acc) + " m)" : "") + ' &middot; <a href="https://www.google.com/maps?q=' + r._lat + ',' + r._lng + '" target="_blank" rel="noopener">Open in Maps</a></b></div></div>' : '<p class="empty" style="margin-top:8px">No location was captured for this record.</p>';
+    return '<details class="person" data-id="' + esc(r._id) + '"' + (openRec[r._id] ? " open" : "") + '><summary><b>' + esc(r.ward) + '</b> &middot; ' + esc(r.interviewer) + '<small>' + when + ' &middot; ' + esc(line) + '</small></summary><div class="rec-body">' + body + locLine +
       (isAdmin ? '<div style="margin-top:8px"><button class="btn ghost small" data-rm="' + esc(r._id) + '">' + (removeArm === r._id ? "Confirm remove" : "Remove") + '</button></div>' : "") + '</div></details>';
   }
   function everyoneCard(list, cl) {
@@ -1004,7 +1005,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (!isAdmin) return;
     var dl = await getDownloader();
     if (!dl) { toast("Download is not available in this view."); return; }
-    var head = ["Date", "Time", "Interviewer", "County", "Constituency", "Ward", "Status"], cols = [];
+    var head = ["Date", "Time", "Interviewer", "County", "Constituency", "Ward", "Latitude", "Longitude", "GPS accuracy (m)", "Status"], cols = [];
     QLIST.forEach(function (q) {
       if (q.id === "interviewer" || q.id === "county" || q.id === "ward" || q.type === "tel" || q.type === "email") return;
       if (q.type === "cand" || q.type === "candsel") { head.push((q.num || q.id) + " candidate", (q.num || q.id) + " other answer"); cols.push([q, "t"], [q, "f"]); }
@@ -1013,7 +1014,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var lines = [head.map(csvCell).join(",")];
     rows.concat(contacts).sort(function (a, b) { return a.ts - b.ts; }).forEach(function (r) {
       var t = new Date(r.ts);
-      var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.county || (WBL[r.ward] || {}).county || "", WARD_CONST[r.ward] || "", r.ward, r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
+      var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.county || (WBL[r.ward] || {}).county || "", WARD_CONST[r.ward] || "", r.ward, r._lat == null ? "" : r._lat, r._lng == null ? "" : r._lng, r._acc == null ? "" : Math.round(r._acc), r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
       cols.forEach(function (c) { var v = r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
       lines.push(line.map(csvCell).join(","));
     });
@@ -1027,7 +1028,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var list = rows.filter(inFilter);
     var cl = contacts.filter(inFilter);
     if (!list.length && !cl.length) { toast("Nothing to download yet."); return; }
-    function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.gps_lat = o._lat == null ? null : o._lat; o.gps_lng = o._lng == null ? null : o._lng; delete o._lat; delete o._lng; o.recorded_at = new Date(o.ts).toISOString(); return o; }
+    function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.gps_lat = o._lat == null ? null : o._lat; o.gps_lng = o._lng == null ? null : o._lng; o.gps_accuracy_m = o._acc == null ? null : o._acc; delete o._lat; delete o._lng; delete o._acc; o.recorded_at = new Date(o.ts).toISOString(); return o; }
     var out = {
       survey: "Ward Voter Survey",
       exported_at: new Date().toISOString(),
@@ -1539,7 +1540,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       }
       rows = []; contacts = [];
       all.forEach(function (x) {
-        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.county = x.county || (WBL[x.ward] || {}).county || ""; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng;
+        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.county = x.county || (WBL[x.ward] || {}).county || ""; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng; o._acc = x.accuracy_m;
         if (x.outcome) { o.outcome = x.outcome; contacts.push(o); } else { delete o.outcome; rows.push(o); }
       });
       $("notices").innerHTML = "";
