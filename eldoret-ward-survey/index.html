@@ -191,6 +191,23 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 .team td, .team th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .teamform { display: grid; gap: 6px; margin-top: 8px; }
 .teamform .inp { width: 100%; margin: 0; }
+.qn-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.qn-item b { font-family: var(--font-display); font-size: 15px; }
+.qn-item .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.qn-item .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pill { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: 1px; background: var(--track); color: var(--muted); }
+.pill.active { background: var(--accent-soft); color: var(--accent); }
+.qe-form label { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.inp.qe { width: 100%; margin: 4px 0 0; }
+.qe-paste { margin-top: 12px; }
+.qe-paste summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent); }
+.qe-q { border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-top: 10px; background: var(--bg); }
+.qe-q .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.qe-q .row select, .qe-q .row input[type="number"] { font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; min-height: 36px; }
+.qe-q .row input[type="number"] { width: 70px; }
+.qe-q .row label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: 13px; color: var(--ink); }
+.qe-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.qe-actions .btn { width: auto; }
 </style>
 </head>
 <body class="auth-out">
@@ -214,6 +231,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
     <button class="tab" role="tab" id="tab-res" aria-selected="false">Results</button>
     <button class="tab" role="tab" id="tab-map" aria-selected="false">Field map</button>
+    <button class="tab" role="tab" id="tab-qn" aria-selected="false">Questionnaire</button>
   </div>
 </div></div>
 
@@ -224,6 +242,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   <main id="view-int">
     <div class="script"><b>Read to the respondent:</b> “Hello. My name is __________. I am doing a study on how people in this ward view the next presidential election. It takes about 15 minutes. Your answers are anonymous and confidential. We will not record your name and nobody will be able to tell what you personally said. At the end I will ask whether you are willing to be contacted for future polls. That is optional, and any phone number or email you give is kept separately from your answers. Taking part is voluntary, you may skip any question, and you may stop at any time. Do you agree to take part?”</div>
     <div class="banner warn" style="margin-top:10px">Read each question exactly as written, in a neutral tone. Do not read out candidate names. Never record a name or ID number. A phone number or email is taken only in the optional last section, with the respondent's agreement.</div>
+    <div class="banner ok" id="qnBadge" hidden></div>
     <form id="form" autocomplete="off" novalidate></form>
     <datalist id="dl-cands"></datalist>
     <div id="stop" class="banner bad" hidden></div>
@@ -261,6 +280,36 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         <button class="btn ghost" id="fcPick" type="button">Pick on map</button>
         <button class="btn ghost" id="fcSave" type="button">Save fence</button>
         <button class="btn ghost" id="fcDel" type="button">Reset to default</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- QUESTIONNAIRE (admin) -->
+  <main id="view-qn" hidden>
+    <div class="card" style="margin-top:12px"><h3>Questionnaires</h3>
+      <p class="sub">Add the questions here and make them active. Enumerators then answer them after the interview details and screening. Close or delete a questionnaire when fieldwork is done; the built-in questions come back when none is active.</p>
+      <div id="qnList"></div>
+      <div style="margin-top:12px"><button class="btn ghost" id="qnNew" type="button">New questionnaire</button></div>
+    </div>
+    <div class="card" id="qnEditor" style="margin-top:12px" hidden>
+      <h3 id="qnEdTitle">New questionnaire</h3>
+      <div class="qe-form">
+        <label for="qnTitle">Title</label>
+        <input class="inp qe" id="qnTitle" maxlength="80" placeholder="e.g. Uasin Gishu voter survey, round 2">
+        <details class="qe-paste"><summary>Paste many questions at once</summary>
+          <p class="empty" style="margin:6px 0">Separate questions with a blank line. The first line is the question; each following line is an answer option. A question with no options becomes short text. Add (multi) or (multi 3) at the end of the question for multiple choice, and * for required. Start a line with # to name a section.</p>
+          <textarea class="inp qe" id="qnPaste" rows="7" placeholder="# Past vote&#10;Did you vote in 2022? *&#10;Yes&#10;No&#10;&#10;What matters most to you? (multi 2)&#10;Jobs&#10;Security&#10;Health"></textarea>
+          <button class="btn ghost small" id="qnPasteAdd" type="button" style="margin-top:6px">Add these questions</button>
+        </details>
+        <div id="qnRows"></div>
+        <div class="qe-actions">
+          <button class="btn ghost small" id="qnAddQ" type="button">Add a question</button>
+        </div>
+        <div class="qe-actions" style="margin-top:12px">
+          <button class="btn" id="qnSaveDraft" type="button">Save as draft</button>
+          <button class="btn ghost" id="qnSaveAct" type="button">Save and make active</button>
+          <button class="btn ghost" id="qnCancel" type="button">Cancel</button>
+        </div>
       </div>
     </div>
   </main>
@@ -376,7 +425,44 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     ]}
   ];
   var QMAP = {}, QLIST = [];
-  SECTIONS.forEach(function (s) { s.items.forEach(function (q) { q._sec = s; QMAP[q.id] = q; QLIST.push(q); }); });
+  var BUILTIN = SECTIONS.slice(), BQLIST = [];   /* the built-in questionnaire, used whenever no admin questionnaire is active */
+  function indexQ() {
+    QMAP = {}; QLIST = [];
+    SECTIONS.forEach(function (s) { s.items.forEach(function (q) { q._sec = s; QMAP[q.id] = q; QLIST.push(q); }); });
+  }
+  indexQ(); BQLIST = QLIST.slice();
+
+  /* ---------- admin questionnaires ----------
+     An admin can add a questionnaire (Questionnaire tab). While one is active, enumerators see its questions
+     after the built-in interview details and screening. Closing it brings back the built-in questions. */
+  var CUSTOM = null;      /* the active questionnaire: { id, title, questions, updated_at } */
+  var QNS = {};           /* admin only: every questionnaire by id, with compiled items */
+  var QTYPES = { single: "Single choice", multi: "Multiple choice", text: "Short text", area: "Long text" };
+  function compileItems(qn) {
+    return (qn.questions || []).map(function (q, i) {
+      var it = { id: q.id, num: "Q" + (i + 1), text: q.text, type: QTYPES[q.type] ? q.type : "text", req: !!q.required, _secName: q.section || "" };
+      if (q.note) it.note = q.note;
+      if (it.type === "single" || it.type === "multi") it.opts = (q.options || []).slice();
+      if (it.type === "multi") it.max = q.max > 0 ? q.max : it.opts.length;
+      return it;
+    });
+  }
+  function compileSections(qn) {
+    var secs = [], byName = {};
+    compileItems(qn).forEach(function (it) {
+      var name = it._secName || qn.title;
+      if (!byName[name]) { byName[name] = { id: "k" + secs.length, title: name, show: qualified, items: [] }; secs.push(byName[name]); }
+      byName[name].items.push(it);
+    });
+    return secs;
+  }
+  function applyQuestionnaire(qn) {
+    CUSTOM = qn || null;
+    SECTIONS = BUILTIN.slice(0, 2).concat(qn ? compileSections(qn) : BUILTIN.slice(2));
+    indexQ(); starKey = "";
+    buildForm();
+    var b = $("qnBadge"); if (b) { b.hidden = !qn; b.textContent = qn ? "Questionnaire in use: " + qn.title : ""; }
+  }
 
   /* ---------- state ---------- */
   var SB_URL = "https://okojbtxueipbuqscgeaq.supabase.co", SB_KEY = "sb_publishable_NB19VS1nnhjOSzj9_cuw-Q_ADULofRn";
@@ -715,7 +801,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (!isAdmin) await ensureFence(o.ward);
     await geoGate(o.ward);
     var wi = WBL[o.ward] || {};
-    var row = { interviewer: o.interviewer, ward: o.ward, county: o.county || wi.county || null, constituency: wi.cons || null, ward_code: wi.code || null, outcome: o.outcome || null, data: o };
+    var row = { interviewer: o.interviewer, ward: o.ward, county: o.county || wi.county || null, constituency: wi.cons || null, ward_code: wi.code || null, outcome: o.outcome || null, data: o, questionnaire_id: o.qid || null };
     if (lastPos) { row.lat = lastPos.lat; row.lng = lastPos.lng; row.accuracy_m = lastPos.acc; }
     var r = await sb.from("interviews").insert(row);
     if (r.error) {
@@ -779,6 +865,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     var now = new Date();
     var doc = { v: 1, ts: now.getTime(), interviewer: (ans.interviewer || "").trim(), county: ans.county, ward: ans.ward };
+    if (CUSTOM) doc.qid = CUSTOM.id;
     QLIST.forEach(function (q) {
       if (q.id === "interviewer" || q.id === "county" || q.id === "ward" || q.type === "tel" || q.type === "email" || !visible(q)) return;
       var v = ans[q.id];
@@ -800,6 +887,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       ans = keep; starKey = "";
       buildForm();
       toast("Interview saved. Ready for the next respondent.");
+      syncQuestionnaire(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       var code = err && err.code;
@@ -845,6 +933,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (Array.isArray(v)) return v.join(", ");
     return String(v);
   }
+  function itemsFor(r) { return r._qid ? ((QNS[r._qid] || {}).items || []) : BQLIST; }
   function recHTML(r) {
     var t = new Date(r.ts);
     var when = t.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -853,13 +942,29 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     else {
       var past = pastLabel(r), now = nowLabel(r);
       line = (past || "No 2022 vote named") + " \u2192 " + (now || "no choice recorded");
-      body = '<div class="sw">' + QLIST.filter(function (q) { return q.id !== "interviewer" && q.id !== "county" && q.id !== "ward" && q.id !== "consent" && filled(q, r[q.id]); }).map(function (q) {
+      body = '<div class="sw">' + itemsFor(r).filter(function (q) { return q.id !== "interviewer" && q.id !== "county" && q.id !== "ward" && q.id !== "consent" && filled(q, r[q.id]); }).map(function (q) {
         return '<div><em>' + esc(((q.num ? q.num + " " : "") + q.text).replace(/\s*\(.*\)\s*$/, "")) + '</em><b>' + esc(answerText(q, r[q.id])) + '</b></div>';
       }).join("") + '</div>';
     }
     var locLine = r._lat != null ? '<div class="sw" style="margin-top:8px"><div><em>Recorded at</em><b>' + esc(r._lat.toFixed(5) + ", " + r._lng.toFixed(5)) + (r._acc != null ? " (accuracy " + Math.round(r._acc) + " m)" : "") + ' &middot; <a href="https://www.google.com/maps?q=' + r._lat + ',' + r._lng + '" target="_blank" rel="noopener">Open in Maps</a></b></div></div>' : '<p class="empty" style="margin-top:8px">No location was captured for this record.</p>';
     return '<details class="person" data-id="' + esc(r._id) + '"' + (openRec[r._id] ? " open" : "") + '><summary><b>' + esc(r.ward) + '</b> &middot; ' + esc(r.interviewer) + '<small>' + when + ' &middot; ' + esc(line) + '</small></summary><div class="rec-body">' + body + locLine +
       (isAdmin ? '<div style="margin-top:8px"><button class="btn ghost small" data-rm="' + esc(r._id) + '">' + (removeArm === r._id ? "Confirm remove" : "Remove") + '</button></div>' : "") + '</div></details>';
+  }
+  function customCards(list) {
+    var h = "";
+    Object.keys(QNS).forEach(function (id) {
+      var sub = list.filter(function (r) { return r._qid === id; });
+      if (!sub.length) return;
+      var qn = QNS[id];
+      h += '<div class="card" style="margin-top:12px"><h3>' + esc(qn.title) + '</h3><p class="sub">' + sub.length + ' interview' + (sub.length === 1 ? "" : "s") + (qn.status === "active" ? "" : ", questionnaire closed") + '</p></div><div class="grid two">' +
+        qn.items.map(function (q) {
+          if (q.type === "text" || q.type === "area") return card(q.num + ". " + q.text, "Latest answers", quotes(sub, q.id));
+          var e = q.type === "multi" ? tallyMulti(sub.map(function (r) { return r[q.id]; })) : tally(sub.map(function (r) { return r[q.id]; }));
+          var base = q.type === "multi" ? sub.filter(function (r) { return r[q.id] && r[q.id].length; }).length : e.reduce(function (s, x) { return s + x[1]; }, 0);
+          return card(q.num + ". " + q.text, base + " answer" + (base === 1 ? "" : "s"), bars(e, base, "", 10));
+        }).join("") + '</div>';
+    });
+    return h;
   }
   function everyoneCard(list, cl) {
     var all = list.concat(cl).sort(function (a, b) { return b.ts - a.ts; });
@@ -972,6 +1077,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     h += '<div class="card" style="margin-top:12px"><h3>Interviewers</h3><p class="sub">Interviews saved per person</p><div class="tbl"><table><thead><tr><th>Interviewer</th><th>Completed</th><th>Not completed</th><th>Wards</th></tr></thead><tbody>' +
       ivRows.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + x.n + '</td><td>' + x.nc + '</td><td>' + Object.keys(x.wards).length + '</td></tr>'; }).join("") + '</tbody></table></div></div>';
 
+    h += customCards(list);
     h += everyoneCard(list, cl);
 
     $("results").innerHTML = h;
@@ -1006,16 +1112,20 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var dl = await getDownloader();
     if (!dl) { toast("Download is not available in this view."); return; }
     var head = ["Date", "Time", "Interviewer", "County", "Constituency", "Ward", "Latitude", "Longitude", "GPS accuracy (m)", "Status"], cols = [];
-    QLIST.forEach(function (q) {
+    BQLIST.forEach(function (q) {
       if (q.id === "interviewer" || q.id === "county" || q.id === "ward" || q.type === "tel" || q.type === "email") return;
       if (q.type === "cand" || q.type === "candsel") { head.push((q.num || q.id) + " candidate", (q.num || q.id) + " other answer"); cols.push([q, "t"], [q, "f"]); }
       else { head.push((q.num || q.id) + " " + q.text.replace(/\s*\(.*\)\s*$/, "").slice(0, 60)); cols.push([q, ""]); }
+    });
+    Object.keys(QNS).forEach(function (id) {
+      var qn = QNS[id]; if (!rows.some(function (r) { return r._qid === id; })) return;
+      qn.items.forEach(function (q) { head.push(qn.title + " - " + q.num + " " + q.text.slice(0, 60)); cols.push([q, "", id]); });
     });
     var lines = [head.map(csvCell).join(",")];
     rows.concat(contacts).sort(function (a, b) { return a.ts - b.ts; }).forEach(function (r) {
       var t = new Date(r.ts);
       var line = [t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.county || (WBL[r.ward] || {}).county || "", WARD_CONST[r.ward] || "", r.ward, r._lat == null ? "" : r._lat, r._lng == null ? "" : r._lng, r._acc == null ? "" : Math.round(r._acc), r.outcome ? (OUTCOME[r.outcome] || r.outcome) : "Completed"];
-      cols.forEach(function (c) { var v = r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
+      cols.forEach(function (c) { var v = (c[2] && r._qid !== c[2]) ? "" : r[c[0].id]; if (c[1]) v = v ? v[c[1]] : ""; else if (Array.isArray(v)) v = v.join(" | "); line.push(v); });
       lines.push(line.map(csvCell).join(","));
     });
     try { await dl.save({ filename: "ward-survey-" + new Date().toLocaleDateString("en-CA") + ".csv", data: "﻿" + lines.join("\r\n") }); }
@@ -1278,9 +1388,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
   function showTab(which) {
     if (which !== "int" && !isAdmin) which = "int";
-    ["int", "res", "map"].forEach(function (k) { $("view-" + k).hidden = k !== which; $("tab-" + k).setAttribute("aria-selected", k === which ? "true" : "false"); });
+    ["int", "res", "map", "qn"].forEach(function (k) { $("view-" + k).hidden = k !== which; $("tab-" + k).setAttribute("aria-selected", k === which ? "true" : "false"); });
     if (which === "res") { renderResults(); loadRows(); }
     if (which === "map") { initMap(); loadMap(); }
+    if (which === "qn") { loadQuestionnaires(); }
     window.scrollTo(0, 0);
   }
 
@@ -1434,6 +1545,201 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     });
   }
 
+  /* ---------- questionnaires: load and sync (everyone), manage (admin) ---------- */
+  var editingId = null, qnDraft = null;
+  function pristine() {
+    var keep = { interviewer: 1, county: 1, ward: 1, consent: 1, s1: 1, s2: 1, s3: 1 };
+    return !Object.keys(ans).some(function (k) { return !keep[k] && ans[k] !== undefined && ans[k] !== ""; });
+  }
+  function validQuestions(arr) { return Array.isArray(arr) ? arr.filter(function (q) { return q && q.id && q.text; }) : []; }
+  /* Fetches the active questionnaire and applies it. An interview that is half filled in is never swapped out unless force is set. */
+  async function syncQuestionnaire(force) {
+    if (!sb || !uid) return;
+    var r, qn = null;
+    try { r = await sb.from("questionnaires").select("id,title,questions,updated_at").eq("status", "active").limit(1); } catch (e) { r = { error: e }; }
+    if (r.error) {
+      var c = store("ward-survey-qn");
+      if (CUSTOM || !c) return;
+      try { qn = JSON.parse(c); } catch (e2) { return; }
+    } else {
+      qn = r.data && r.data[0] ? r.data[0] : null;
+      store("ward-survey-qn", qn ? JSON.stringify(qn) : "");
+    }
+    if (qn) qn.questions = validQuestions(qn.questions);
+    var same = qn ? !!CUSTOM && qn.id === CUSTOM.id && qn.updated_at === CUSTOM.updated_at : !CUSTOM;
+    if (same) return;
+    if (!force && !pristine()) return;
+    applyQuestionnaire(qn);
+  }
+
+  async function loadQuestionnaires() {
+    if (!isAdmin || !sb) return;
+    var r = await sb.from("questionnaires").select("id,title,status,questions,created_at,updated_at").order("created_at", { ascending: false });
+    if (r.error) { $("qnList").innerHTML = '<p class="empty">Could not load the questionnaires. Reload the page to try again.</p>'; return; }
+    QNS = {};
+    r.data.forEach(function (q) { q.questions = validQuestions(q.questions); q.items = compileItems(q); QNS[q.id] = q; });
+    renderQnList();
+  }
+  function qnResponses(id) { return rows.filter(function (r) { return r._qid === id; }).length; }
+  function renderQnList() {
+    var list = Object.keys(QNS).map(function (k) { return QNS[k]; });
+    var anyActive = list.some(function (q) { return q.status === "active"; });
+    var h = '<div class="qn-item"><b>Built-in questionnaire</b>' + (anyActive ? "" : '<span class="pill active">In use</span>') + '<div class="meta">The standard questions that come with the app. Enumerators get these whenever no questionnaire below is active.</div></div>';
+    h += list.map(function (q) {
+      var n = qnResponses(q.id), acts = [];
+      if (q.status === "draft") acts.push('<button class="btn ghost small" data-act="edit" data-id="' + esc(q.id) + '">Edit</button>');
+      if (q.status !== "active") acts.push('<button class="btn ghost small" data-act="activate" data-id="' + esc(q.id) + '">Make active</button>');
+      if (q.status === "active") acts.push('<button class="btn ghost small" data-act="close" data-id="' + esc(q.id) + '">Close</button>');
+      acts.push('<button class="btn ghost small" data-act="copy" data-id="' + esc(q.id) + '">Duplicate</button>');
+      if (q.status !== "active") acts.push('<button class="btn ghost small" data-act="delete" data-id="' + esc(q.id) + '">Delete</button>');
+      return '<div class="qn-item"><b>' + esc(q.title) + '</b><span class="pill ' + (q.status === "active" ? "active" : "") + '">' + (q.status === "active" ? "Active" : q.status === "closed" ? "Closed" : "Draft") + '</span>' +
+        '<div class="meta">' + q.questions.length + ' question' + (q.questions.length === 1 ? "" : "s") + ' &middot; ' + n + ' interview' + (n === 1 ? "" : "s") + ' saved</div><div class="acts">' + acts.join("") + '</div></div>';
+    }).join("");
+    $("qnList").innerHTML = h;
+  }
+  function qnNow() { return new Date().toISOString(); }
+  async function setQnStatus(id, status) {
+    if (status === "active") {
+      var c = await sb.from("questionnaires").update({ status: "closed", updated_at: qnNow() }).eq("status", "active");
+      if (c.error) throw c.error;
+    }
+    var r = await sb.from("questionnaires").update({ status: status, updated_at: qnNow() }).eq("id", id);
+    if (r.error) throw r.error;
+  }
+  async function onQnAction(e) {
+    var b = e.target.closest("button[data-act]"); if (!b) return;
+    var id = b.getAttribute("data-id"), act = b.getAttribute("data-act"), q = QNS[id]; if (!q) return;
+    try {
+      if (act === "edit") { openEditor(q); return; }
+      if (act === "activate") {
+        if (!window.confirm("Make “" + q.title + "” the active questionnaire? Enumerators will see these questions instead of the current ones.")) return;
+        await setQnStatus(id, "active"); toast("Questionnaire is active."); await loadQuestionnaires(); syncQuestionnaire(false); return;
+      }
+      if (act === "close") {
+        if (!window.confirm("Close “" + q.title + "”? Enumerators will stop seeing it. Saved answers are kept.")) return;
+        await setQnStatus(id, "closed"); toast("Questionnaire closed."); await loadQuestionnaires(); syncQuestionnaire(false); return;
+      }
+      if (act === "copy") {
+        var ins = await sb.from("questionnaires").insert({ title: q.title + " (copy)", status: "draft", questions: q.questions });
+        if (ins.error) throw ins.error; toast("Copied as a draft."); await loadQuestionnaires(); return;
+      }
+      if (act === "delete") {
+        var n = qnResponses(id);
+        if (n) { toast(n + " saved interview" + (n === 1 ? " is" : "s are") + " linked to this questionnaire. Download the data, then close it instead. Closing hides it from enumerators."); return; }
+        if (!window.confirm("Delete “" + q.title + "” for good?")) return;
+        var del = await sb.from("questionnaires").delete().eq("id", id);
+        if (del.error) throw del.error; toast("Questionnaire deleted."); await loadQuestionnaires(); return;
+      }
+    } catch (err) {
+      toast(err && err.code === "23503" ? "Saved interviews use this questionnaire, so it cannot be deleted. Close it instead." : "Could not do that. Check the connection and try again.");
+    }
+  }
+
+  /* editor */
+  function blankQ() { return { section: "", text: "", type: "single", options: "", max: "", required: false }; }
+  function openEditor(q) {
+    editingId = q ? q.id : null;
+    qnDraft = { questions: q ? q.questions.map(function (x) { return { section: x.section || "", text: x.text, type: QTYPES[x.type] ? x.type : "text", options: (x.options || []).join("\n"), max: x.max > 0 ? String(x.max) : "", required: !!x.required }; }) : [blankQ()] };
+    $("qnTitle").value = q ? q.title : "";
+    $("qnEdTitle").textContent = q ? "Edit draft" : "New questionnaire";
+    $("qnEditor").hidden = false; renderEditorRows();
+    $("qnEditor").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function closeEditor() { $("qnEditor").hidden = true; editingId = null; qnDraft = null; }
+  function renderEditorRows() {
+    var qs = qnDraft.questions;
+    $("qnRows").innerHTML = qs.length ? qs.map(function (q, i) {
+      var choice = q.type === "single" || q.type === "multi";
+      return '<div class="qe-q" data-i="' + i + '"><b style="font-size:13px">Question ' + (i + 1) + '</b>' +
+        '<input class="inp qe" data-f="section" placeholder="Section heading (optional)" maxlength="60" value="' + esc(q.section) + '">' +
+        '<textarea class="inp qe" data-f="text" rows="2" maxlength="300" placeholder="The question, exactly as the interviewer reads it">' + esc(q.text) + '</textarea>' +
+        '<div class="row"><select data-f="type">' + Object.keys(QTYPES).map(function (k) { return '<option value="' + k + '"' + (q.type === k ? " selected" : "") + '>' + QTYPES[k] + '</option>'; }).join("") + '</select>' +
+        (q.type === "multi" ? '<label>Up to <input type="number" min="1" max="20" data-f="max" value="' + esc(q.max) + '" placeholder="all"> answers</label>' : "") +
+        '<label><input type="checkbox" data-f="required"' + (q.required ? " checked" : "") + '> Required</label></div>' +
+        (choice ? '<textarea class="inp qe" data-f="options" rows="4" placeholder="One answer per line">' + esc(q.options) + '</textarea>' : "") +
+        '<div class="row"><button class="btn ghost small" type="button" data-mv="up"' + (i === 0 ? " disabled" : "") + '>Move up</button><button class="btn ghost small" type="button" data-mv="down"' + (i === qs.length - 1 ? " disabled" : "") + '>Move down</button><button class="btn ghost small" type="button" data-mv="rm">Remove</button></div></div>';
+    }).join("") : '<p class="empty" style="margin-top:10px">No questions yet. Add one, or paste several above.</p>';
+  }
+  function onEditorInput(e) {
+    var t = e.target, f = t.getAttribute && t.getAttribute("data-f"), row = t.closest && t.closest(".qe-q");
+    if (!f || !row || !qnDraft) return;
+    var q = qnDraft.questions[+row.getAttribute("data-i")]; if (!q) return;
+    q[f] = t.type === "checkbox" ? t.checked : t.value;
+    if (f === "type" && e.type === "change") renderEditorRows();
+  }
+  function onEditorClick(e) {
+    var b = e.target.closest("button[data-mv]"); if (!b || !qnDraft) return;
+    var i = +b.closest(".qe-q").getAttribute("data-i"), qs = qnDraft.questions, m = b.getAttribute("data-mv");
+    if (m === "rm") qs.splice(i, 1);
+    else { var j = m === "up" ? i - 1 : i + 1; if (j < 0 || j >= qs.length) return; var tmp = qs[i]; qs[i] = qs[j]; qs[j] = tmp; }
+    renderEditorRows();
+  }
+  function parsePaste(txt) {
+    var out = [], sec = "";
+    txt.replace(/\r/g, "").split(/\n\s*\n/).forEach(function (block) {
+      var lines = block.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      while (lines.length && lines[0].charAt(0) === "#") sec = lines.shift().replace(/^#+\s*/, "");
+      if (!lines.length) return;
+      var t = lines.shift(), req = false, type = "text", max = "";
+      if (/\*\s*$/.test(t)) { req = true; t = t.replace(/\s*\*\s*$/, ""); }
+      var m = t.match(/\s*\(\s*multi(?:\s+(\d+))?\s*\)\s*$/i);
+      var opts = lines.map(function (l) { return l.replace(/^([-•*]|\d+[.)])\s+/, "").trim(); }).filter(Boolean);
+      if (m && opts.length) { type = "multi"; max = m[1] || ""; }
+      else if (opts.length) type = "single";
+      t = t.replace(/\s*\(\s*multi(?:\s+\d+)?\s*\)\s*$/i, "").trim();
+      if (!t) return;
+      out.push({ section: sec, text: t, type: type, options: opts.join("\n"), max: max, required: req });
+    });
+    return out;
+  }
+  async function saveQn(activate) {
+    if (!qnDraft) return;
+    var title = $("qnTitle").value.trim();
+    if (!title) { toast("Give the questionnaire a title."); $("qnTitle").focus(); return; }
+    var qs = qnDraft.questions.filter(function (q) { return q.text.trim(); });
+    if (!qs.length) { toast("Add at least one question."); return; }
+    var out = [];
+    for (var i = 0; i < qs.length; i++) {
+      var q = qs[i], choice = q.type === "single" || q.type === "multi";
+      var opts = choice ? q.options.split("\n").map(function (s) { return s.trim(); }).filter(Boolean) : [];
+      if (choice && opts.length < 2) { toast("Question " + (i + 1) + " needs at least two answers, or make it a text question."); return; }
+      out.push({ id: "q" + (i + 1), section: q.section.trim(), text: q.text.trim(), type: q.type, options: opts, max: q.type === "multi" && parseInt(q.max, 10) > 0 ? Math.min(parseInt(q.max, 10), opts.length) : 0, required: !!q.required });
+    }
+    if (activate && !window.confirm("Make this questionnaire active? Enumerators will see these questions instead of the current ones.")) return;
+    try {
+      var id = editingId;
+      if (id) {
+        var u = await sb.from("questionnaires").update({ title: title, questions: out, updated_at: qnNow() }).eq("id", id).eq("status", "draft");
+        if (u.error) throw u.error;
+      } else {
+        var ins = await sb.from("questionnaires").insert({ title: title, status: "draft", questions: out }).select("id").single();
+        if (ins.error) throw ins.error; id = ins.data.id;
+      }
+      if (activate) await setQnStatus(id, "active");
+      toast(activate ? "Saved and active." : "Draft saved.");
+      closeEditor(); await loadQuestionnaires(); if (activate) syncQuestionnaire(false);
+    } catch (err) { toast("Could not save. Check the connection and try again."); }
+  }
+  function bindQnUi() {
+    $("tab-qn").addEventListener("click", function () { showTab("qn"); });
+    $("qnNew").addEventListener("click", function () { openEditor(null); });
+    $("qnList").addEventListener("click", onQnAction);
+    $("qnRows").addEventListener("input", onEditorInput);
+    $("qnRows").addEventListener("change", onEditorInput);
+    $("qnRows").addEventListener("click", onEditorClick);
+    $("qnAddQ").addEventListener("click", function () { if (!qnDraft) return; qnDraft.questions.push(blankQ()); renderEditorRows(); });
+    $("qnPasteAdd").addEventListener("click", function () {
+      if (!qnDraft) return;
+      var add = parsePaste($("qnPaste").value);
+      if (!add.length) { toast("Nothing to add. Put each question on its own line, with a blank line between questions."); return; }
+      qnDraft.questions = qnDraft.questions.filter(function (q) { return q.text.trim(); }).concat(add);
+      $("qnPaste").value = ""; renderEditorRows(); toast(add.length + " question" + (add.length === 1 ? "" : "s") + " added.");
+    });
+    $("qnSaveDraft").addEventListener("click", function () { saveQn(false); });
+    $("qnSaveAct").addEventListener("click", function () { saveQn(true); });
+    $("qnCancel").addEventListener("click", closeEditor);
+  }
+
   /* ---------- boot ---------- */
   async function init() {
     await loadAreas(); await loadWardShapes();
@@ -1465,6 +1771,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       try { if (!tgt) throw new Error("gone"); await db.doc(tgt._path).delete(); toast("Interview removed."); } catch (err) { toast("Could not remove it."); }
     });
     bindMapUi();
+    bindQnUi();
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") syncQuestionnaire(false); });
     $("signinForm").addEventListener("submit", doSignIn);
     $("signOut").addEventListener("click", async function () { try { await sb.auth.signOut(); } catch (e) {} location.reload(); });
     $("changePw").addEventListener("click", async function () {
@@ -1534,13 +1842,13 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     try {
       var all = [], from = 0;
       for (;;) {
-        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,county,outcome,lat,lng,accuracy_m,data").order("created_at", { ascending: true }).range(from, from + 999);
+        var r = await sb.from("interviews").select("id,created_at,interviewer,ward,county,outcome,lat,lng,accuracy_m,questionnaire_id,data").order("created_at", { ascending: true }).range(from, from + 999);
         if (r.error) throw r.error;
         all = all.concat(r.data); if (r.data.length < 1000) break; from += 1000;
       }
       rows = []; contacts = [];
       all.forEach(function (x) {
-        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.county = x.county || (WBL[x.ward] || {}).county || ""; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng; o._acc = x.accuracy_m;
+        var o = Object.assign({}, x.data || {}); o._id = x.id; o.interviewer = x.interviewer; o.ward = x.ward; o.county = x.county || (WBL[x.ward] || {}).county || ""; o.ts = o.ts || Date.parse(x.created_at); o._lat = x.lat; o._lng = x.lng; o._acc = x.accuracy_m; o._qid = x.questionnaire_id || o.qid || null;
         if (x.outcome) { o.outcome = x.outcome; contacts.push(o); } else { delete o.outcome; rows.push(o); }
       });
       $("notices").innerHTML = "";
@@ -1555,9 +1863,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("who").textContent = lockedName + (isAdmin ? " (admin)" : "");
     ans.interviewer = lockedName; document.body.classList.add("enum-locked");
     fillCountySelect(); fillWardSelect();
+    await syncQuestionnaire(true);
     if (isAdmin) {
       $("tabBar").style.display = ""; $("adminBox").hidden = false;
-      loadUsers(); await loadRows(); ensureDefaultFences();
+      loadUsers(); await loadQuestionnaires(); await loadRows(); ensureDefaultFences();
       setInterval(function () { if (document.visibilityState === "visible" && !$("view-res").hidden) loadRows(); }, 20000);
     } else {
       try { var c = await sb.rpc("my_saved_count"); myTotal = c.data || 0; } catch (e) { myTotal = 0; }

@@ -27,3 +27,15 @@ centre and enclosing radius for each. Source: `tigawanna/kenya_wards_geojson_dat
 Kenya Elections boundary data on the Humanitarian Data Exchange (IEBC). The other 14 wards use a circle around the
 constituency instead. Enumerators see only the ward their phone is inside, and an interview is accepted only from inside
 that ward (the server check uses a circle that encloses the ward). Check the HDX licence terms before wider redistribution.
+
+## Questionnaires (migration 004)
+
+Admins get a **Questionnaire** tab. Add a questionnaire (type the questions, or paste many at once), then **Make active**.
+Enumerators then answer its questions after the interview details and screening; the built-in questions are used
+again whenever none is active. Only drafts can be edited. When fieldwork is done, **Close** the questionnaire: it is hidden
+from enumerators and its answers are kept (they appear in Results, the CSV and the JSON). **Delete** works only for a
+questionnaire with no saved interviews, so data cannot be lost by accident. Run `supabase/migrations/004_questionnaires.sql` first.
+
+Paste format: separate questions with a blank line; the first line is the question and each following line is an answer.
+No answers = short text. End a question with `(multi)` or `(multi 3)` for multiple choice and with `*` if it is required.
+A line starting with `#` names a section.
