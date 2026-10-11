@@ -19,3 +19,11 @@ Enumerators pick a County, then a Ward (47 counties, 1,450 wards, from `kenya-ar
 Each ward has a GPS fence in `ward_geofences`. On first admin sign-in the app creates a default
 fence for every ward from its constituency centre and size; the admin can tighten any of them in
 Field map > Ward GPS fences. Run `supabase/migrations/003_national_geofences.sql` before deploying this version.
+
+## Ward boundaries
+
+`kenya-wards.json` holds simplified ward boundaries (about 55 m tolerance) for 1,436 of the 1,450 wards, with a default
+centre and enclosing radius for each. Source: `tigawanna/kenya_wards_geojson_data` (MIT), itself built from the
+Kenya Elections boundary data on the Humanitarian Data Exchange (IEBC). The other 14 wards use a circle around the
+constituency instead. Enumerators see only the ward their phone is inside, and an interview is accepted only from inside
+that ward (the server check uses a circle that encloses the ward). Check the HDX licence terms before wider redistribution.

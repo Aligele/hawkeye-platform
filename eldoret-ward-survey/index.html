@@ -244,11 +244,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       <button class="btn ghost" id="mapRefresh" type="button">Refresh</button>
     </div>
     <div id="map"></div>
-    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. The green arrow on a person shows the direction they are moving, and the dashed amber line points to the ward they are going to. Rings are ward GPS fences. Locations are shared only while the enumerator has the app open.</p>
+    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. The green arrow on a person shows the direction they are moving, and the dashed amber line points to the ward they are going to. Rings are custom ward GPS fences; the amber outline is the boundary of the ward selected in the fence editor. Locations are shared only while the enumerator has the app open.</p>
     <div class="card" style="margin-top:12px"><h3>Enumerators</h3>
       <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th><th>Heading</th></tr></thead><tbody id="fieldList"></tbody></table></div>
     <div class="card" style="margin-top:12px"><h3>Ward GPS fences</h3>
-      <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Every ward starts with a default fence taken from its constituency. Set the exact centre and radius here to tighten it.</p>
+      <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Every ward uses its real boundary by default (a ring around its centre where no boundary file exists). A fence you save here replaces the boundary with a circle; Reset to default restores it.</p>
       <p class="empty" id="noFence" style="margin:6px 0 0"></p>
       <div class="fence-form">
         <select id="fcCounty" class="inp"></select>
@@ -306,7 +306,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   /* ---------- constants ---------- */
   var TARGET_PER_WARD = 50;
   var WARD_CONST = {};            /* ward label -> constituency */
-  var AREAS = null, WBL = {}, CWARDS = {}, COUNTIES = [], CONSL = [];   /* national county / ward list */
+  var AREAS = null, WBL = {}, CWARDS = {}, COUNTIES = [], CONSL = [], WPOLY = {}, WFENCE = {};   /* national county / ward list */
   var CONSENT_YES = "Yes, continue", CONSENT_NO = "No, end the interview";
   var SAME = "Same candidate / party", DIFF = "Different candidate / party", NOVOTE22 = "Did not vote in 2022", UNDEC_NOW = "Undecided now";
   var REASON_PAST = ["Economy / cost of living", "Jobs / youth employment", "Fighting corruption", "Security", "Health / education", "Farming / crop prices", "Leader's character / experience", "Party loyalty", "Candidate is from my community / region", "Development record", "Campaign promises", "Advice from family / friends / leaders", "Other", "Cannot remember"];
@@ -444,6 +444,33 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     try { var r = await fetch("kenya-areas.json", { cache: "force-cache" }); if (!r.ok) throw new Error("http " + r.status); indexAreas(await r.json()); }
     catch (e) { try { var r2 = await fetch("kenya-areas.json"); indexAreas(await r2.json()); } catch (e2) { toast("Could not load the county and ward list. Check the connection and reload."); } }
   }
+  async function loadWardShapes() {
+    try {
+      var r = await fetch("kenya-wards.json"); if (!r.ok) throw new Error("http " + r.status);
+      var d = await r.json(); WPOLY = d.p || {}; WFENCE = d.f || {};
+      wards.forEach(function (l) { var o = WBL[l], f = WFENCE[o.code]; if (f) { o.lat = f[0]; o.lng = f[1]; o.r = f[2]; o.shape = true; } });
+    } catch (e) { WPOLY = {}; WFENCE = {}; }
+  }
+  /* point-in-polygon on the simplified ward boundary; buf (metres) forgives GPS error and boundary simplification */
+  function inRings(rings, lat, lng) {
+    for (var k = 0; k < rings.length; k++) {
+      var r = rings[k], inside = false;
+      for (var i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+        var yi = r[i], xi = r[i + 1], yj = r[j], xj = r[j + 1];
+        if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  }
+  function inWard(code, lat, lng, buf) {
+    var w = WPOLY[code]; if (!w) return null;
+    var dl = buf / 111320, dn = buf / (111320 * Math.cos(rad(lat))), b = w[0];
+    if (lat < b[0] - dl || lat > b[2] + dl || lng < b[1] - dn || lng > b[3] + dn) return false;
+    var pts = [[lat, lng], [lat + dl, lng], [lat - dl, lng], [lat, lng + dn], [lat, lng - dn]];
+    for (var i = 0; i < pts.length; i++) if (inRings(w[1], pts[i][0], pts[i][1])) return true;
+    return false;
+  }
   function inFilter(r) {
     if (!wardFilter) return true;
     if (wardFilter.indexOf("c:") === 0) return r.county === wardFilter.slice(2);
@@ -463,20 +490,25 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   /* Enumerators see only the county and wards around their phone; admins see everything. */
   function locCandidates() {
     if (isAdmin || !AREAS) return null;
-    var out = { counties: [], cons: {} };
+    var out = { counties: [], wards: {} };
     if (!lastPos) return out;
+    var buf = Math.min(Math.max(lastPos.acc || 0, 50), 150);
+    function add(o) { out.wards[o.code] = 1; if (out.counties.indexOf(o.county) < 0) out.counties.push(o.county); }
+    wards.forEach(function (l) { var o = WBL[l]; if (o.shape && inWard(o.code, lastPos.lat, lastPos.lng, buf)) add(o); });
+    /* wards without a boundary file: use the nearest two constituencies */
+    var near = {};
     CONSL.map(function (k) { return { k: k, d: distM(lastPos.lat, lastPos.lng, k.lat, k.lng) }; })
-      .filter(function (x) { return x.d <= x.k.r; })
-      .sort(function (a, b) { return a.d - b.d; }).slice(0, 2)
-      .forEach(function (x) { out.cons[x.k.c] = 1; if (out.counties.indexOf(x.k.county) < 0) out.counties.push(x.k.county); });
+      .filter(function (x) { return x.d <= x.k.r; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2)
+      .forEach(function (x) { near[x.k.c] = 1; });
+    wards.forEach(function (l) { var o = WBL[l]; if (!o.shape && near[o.k]) add(o); });
     return out;
   }
   function allowedCounties() { var c = locCandidates(); return c ? c.counties : COUNTIES.map(function (x) { return x.n; }); }
-  function allowedWards(county) { var c = locCandidates(), all = CWARDS[county] || []; return c ? all.filter(function (o) { return c.cons[o.k]; }) : all; }
+  function allowedWards(county) { var c = locCandidates(), all = CWARDS[county] || []; return c ? all.filter(function (o) { return c.wards[o.code]; }) : all; }
   var locKey = "";
   function updateLocOptions() {
     if (isAdmin || !AREAS) return;
-    var c = locCandidates(), key = c.counties.join("|") + "#" + Object.keys(c.cons).join(",");
+    var c = locCandidates(), key = c.counties.join("|") + "#" + Object.keys(c.wards).join(",");
     if (key === locKey) return; locKey = key;
     fillCountySelect(); fillWardSelect();
     var cs = document.querySelector('select[data-in="county"]'), ws = document.querySelector('select[data-in="ward"]');
@@ -626,6 +658,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     if (!lastPos) return { enforced: true, ok: false, msg: geoErr || "Waiting for your phone location..." };
     if (lastPos.acc > 500) return { enforced: true, ok: false, msg: "GPS signal is weak (accuracy " + Math.round(lastPos.acc) + " m). Move outdoors and wait a moment." };
+    var wi = WBL[ward];
+    if (f.source !== "admin" && wi && wi.shape) {
+      var buf = Math.min(Math.max(lastPos.acc || 0, 50), 150);
+      if (inWard(wi.code, lastPos.lat, lastPos.lng, buf)) return { enforced: true, ok: true, msg: "Location confirmed inside " + wi.name + " ward." };
+      return { enforced: true, ok: false, msg: "You are outside " + wi.name + " ward (about " + fmtDist(distM(lastPos.lat, lastPos.lng, wi.lat, wi.lng)) + " from its centre). Interviews can be saved only inside the ward." };
+    }
     var d = distM(lastPos.lat, lastPos.lng, f.lat, f.lng);
     if (d > f.radius_m) return { enforced: true, ok: false, msg: "You are " + fmtDist(d) + " from the " + ward + " ward centre. Interviews can be saved only within " + fmtDist(f.radius_m) + "." };
     return { enforced: true, ok: true, msg: "Location confirmed inside " + ward + " ward." };
@@ -1270,18 +1308,22 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   async function ensureDefaultFences() {
     if (!isAdmin || !sb || !AREAS) return;
     try {
-      var have = {}; (await fetchAll(function () { return sb.from("ward_geofences").select("ward_code").order("ward_code"); })).forEach(function (x) { have[x.ward_code] = 1; });
-      var miss = wards.map(function (l) { return WBL[l]; }).filter(function (o) { return !have[o.code]; });
-      if (!miss.length) return;
-      toast("Setting up GPS fences for " + miss.length + " wards...");
-      for (var i = 0; i < miss.length; i += 300) {
-        var chunk = miss.slice(i, i + 300).map(function (o) { return { ward_code: o.code, county: o.county, constituency: o.cons, ward: o.label, lat: o.lat, lng: o.lng, radius_m: o.r, enabled: true, source: "default" }; });
-        var r = await sb.from("ward_geofences").upsert(chunk, { onConflict: "ward_code", ignoreDuplicates: true });
+      var have = {}; (await fetchAll(function () { return sb.from("ward_geofences").select("ward_code,source,lat,lng,radius_m").order("ward_code"); })).forEach(function (x) { have[x.ward_code] = x; });
+      var todo = wards.map(function (l) { return WBL[l]; }).filter(function (o) {
+        var h = have[o.code];
+        return !h || (h.source !== "admin" && (Math.abs(h.lat - o.lat) > 0.00002 || Math.abs(h.lng - o.lng) > 0.00002 || h.radius_m !== o.r));
+      });
+      if (!todo.length) return;
+      toast("Setting up GPS fences for " + todo.length + " wards...");
+      for (var i = 0; i < todo.length; i += 300) {
+        var chunk = todo.slice(i, i + 300).map(function (o) { return { ward_code: o.code, county: o.county, constituency: o.cons, ward: o.label, lat: o.lat, lng: o.lng, radius_m: o.r, enabled: true, source: "default", updated_at: new Date().toISOString() }; });
+        var r = await sb.from("ward_geofences").upsert(chunk, { onConflict: "ward_code" });
         if (r.error) throw r.error;
       }
       toast("GPS fences ready for all wards."); if (!$("view-map").hidden) loadMap();
     } catch (e) { toast("Could not set up the default GPS fences. Reload to retry."); }
   }
+  var lastPts = [];
   async function loadMap() {
     if (!isAdmin || !sb) return;
     try {
@@ -1289,7 +1331,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       var fa = await fetchAll(function () { return sb.from("ward_geofences").select("*").order("ward_code"); }); fences = {}; fa.forEach(function (f) { fences[f.ward] = f; });
       var pr = await sb.from("profiles").select("id,full_name,role,active"); mapProfiles = {}; (pr.data || []).forEach(function (x) { mapProfiles[x.id] = x; });
       var pts = await fetchAll(function () { return sb.from("locations").select("enumerator_id,created_at,lat,lng,accuracy_m,ward").gte("created_at", since).order("created_at", { ascending: false }); });
-      drawMap(pts); fillFenceForm();
+      lastPts = pts; drawMap(pts); fillFenceForm();
     } catch (e) { toast("Could not load the field map."); }
   }
   function bearingDeg(la1, ln1, la2, ln2) {
@@ -1320,7 +1362,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var bounds = [];
     if (map && mapLayer) {
       mapLayer.clearLayers();
-      var showC = $("fcCounty").value;
+      var showC = $("fcCounty").value, sw = WBL[$("fcWard").value];
+      if (sw && WPOLY[sw.code]) WPOLY[sw.code][1].forEach(function (rg) { var ll = []; for (var q = 0; q < rg.length; q += 2) ll.push([rg[q], rg[q + 1]]); L.polygon(ll, { color: "#C48A14", weight: 2, fillOpacity: 0.08 }).bindTooltip(sw.name + " ward boundary").addTo(mapLayer); bounds.push([sw.lat, sw.lng]); });
       Object.keys(fences).forEach(function (w) { var f = fences[w]; if (f.source !== "admin" && f.county !== showC) return; L.circle([f.lat, f.lng], { radius: f.radius_m, color: f.enabled ? "#0B5D3B" : "#999", weight: 1.5, fillOpacity: 0.05, dashArray: "5 5" }).bindTooltip(w + " fence").addTo(mapLayer); bounds.push([f.lat, f.lng]); });
       rows.concat(contacts).forEach(function (r) { if (r._lat != null) L.circleMarker([r._lat, r._lng], { radius: 3, color: r.outcome ? "#888" : "#0B5D3B", weight: 1, fillOpacity: 0.8 }).bindTooltip((r.outcome ? "Not completed" : "Interview") + " | " + r.ward + " | " + r.interviewer).addTo(mapLayer); });
       Object.keys(by).forEach(function (id) {
@@ -1366,6 +1409,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("mapRange").addEventListener("change", loadMap);
     $("mapRefresh").addEventListener("click", loadMap);
     $("fcCounty").addEventListener("change", function () { fillFenceForm(); loadMap(); });
+    $("fcWard").addEventListener("change", function () { drawMap(lastPts); });
     $("fcWard").addEventListener("change", function () { var f = fences[$("fcWard").value]; $("fcLat").value = f ? f.lat : ""; $("fcLng").value = f ? f.lng : ""; $("fcRad").value = f ? f.radius_m : "3000"; $("fcOn").checked = f ? f.enabled : true; if (f && map) map.setView([f.lat, f.lng], 13); });
     $("fcHere").addEventListener("click", function () {
       if (!navigator.geolocation) { toast("This device cannot share its location."); return; }
@@ -1391,7 +1435,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
   /* ---------- boot ---------- */
   async function init() {
-    await loadAreas();
+    await loadAreas(); await loadWardShapes();
     ans.interviewer = store("ward-survey-interviewer") || "";
     buildForm();
     $("form").addEventListener("click", onClick);
