@@ -168,6 +168,7 @@ details.person summary small { display: block; color: var(--muted); font-size: 1
 #map { height: 380px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; z-index: 0; }
 .geo-ok { color: var(--accent); } .geo-bad { color: var(--bad); font-weight: 600; }
 .fl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.hdg { background: none; border: 0; } .hdg div { width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 20px; color: #0B5D3B; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .fl td, .fl th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 .fence-form { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
@@ -239,9 +240,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       <button class="btn ghost" id="mapRefresh" type="button">Refresh</button>
     </div>
     <div id="map"></div>
-    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. Rings are ward GPS fences. Locations are shared only while the enumerator has the app open.</p>
+    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. The green arrow on a person shows the direction they are moving, and the dashed amber line points to the ward they are going to. Rings are ward GPS fences. Locations are shared only while the enumerator has the app open.</p>
     <div class="card" style="margin-top:12px"><h3>Enumerators</h3>
-      <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th></tr></thead><tbody id="fieldList"></tbody></table></div>
+      <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th><th>Heading</th></tr></thead><tbody id="fieldList"></tbody></table></div>
     <div class="card" style="margin-top:12px"><h3>Ward GPS fences</h3>
       <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Every ward starts with a default fence taken from its constituency. Set the exact centre and radius here to tighten it.</p>
       <p class="empty" id="noFence" style="margin:6px 0 0"></p>
@@ -610,7 +611,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     refresh();
   }
   async function logLocation() {
-    if (isAdmin || !sb || !uid || !lastPos || Date.now() - lastLogAt < 120000) return;
+    if (isAdmin || !sb || !uid || !lastPos || Date.now() - lastLogAt < 30000) return;
     lastLogAt = Date.now();
     try { await sb.from("locations").insert({ lat: lastPos.lat, lng: lastPos.lng, accuracy_m: lastPos.acc, ward: ans.ward || null }); } catch (e) {}
   }
@@ -1247,6 +1248,29 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       drawMap(pts); fillFenceForm();
     } catch (e) { toast("Could not load the field map."); }
   }
+  function bearingDeg(la1, ln1, la2, ln2) {
+    var y = Math.sin(rad(ln2 - ln1)) * Math.cos(rad(la2)), x = Math.cos(rad(la1)) * Math.sin(rad(la2)) - Math.sin(rad(la1)) * Math.cos(rad(la2)) * Math.cos(rad(ln2 - ln1));
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function compass(deg) { return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(deg / 45) % 8]; }
+  /* arr is newest first. Direction comes from the last point at least 30 m away, seen within 30 minutes. */
+  function trackInfo(arr) {
+    var l = arr[0], prev = null, tl = Date.parse(l.created_at);
+    for (var i = 1; i < arr.length; i++) {
+      if (tl - Date.parse(arr[i].created_at) > 1800000) break;
+      if (distM(arr[i].lat, arr[i].lng, l.lat, l.lng) >= 30) { prev = arr[i]; break; }
+    }
+    var f = l.ward && fences[l.ward], info = { deg: prev ? bearingDeg(prev.lat, prev.lng, l.lat, l.lng) : null, dest: f || null, text: "" };
+    if (!l.ward) { info.text = "No destination chosen"; return info; }
+    if (!f) { info.text = "Destination: " + l.ward; return info; }
+    var d = distM(l.lat, l.lng, f.lat, f.lng); info.dist = d;
+    if (d <= f.radius_m) { info.text = "Arrived: inside " + l.ward + (info.deg != null ? ", moving " + compass(info.deg) : ""); return info; }
+    var toDest = compass(bearingDeg(l.lat, l.lng, f.lat, f.lng));
+    if (!prev) { info.text = "Stationary, " + fmtDist(d) + " " + toDest + " of " + l.ward + " centre"; return info; }
+    var pd = distM(prev.lat, prev.lng, f.lat, f.lng);
+    info.text = (d < pd - 10 ? "Heading " + compass(info.deg) + ", toward " : d > pd + 10 ? "Heading " + compass(info.deg) + ", away from " : "Moving " + compass(info.deg) + ", beside ") + l.ward + " (" + fmtDist(d) + " to go, destination is " + toDest + ")";
+    return info;
+  }
   function drawMap(pts) {
     var by = {}; pts.forEach(function (p) { (by[p.enumerator_id] = by[p.enumerator_id] || []).push(p); });
     var bounds = [];
@@ -1259,21 +1283,28 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         var arr = by[id], last = arr[0], nm = (mapProfiles[id] && mapProfiles[id].full_name) || "Unknown", age = Date.now() - Date.parse(last.created_at);
         L.polyline(arr.slice().reverse().map(function (p) { return [p.lat, p.lng]; }), { color: "#4E6E8E", weight: 2, opacity: 0.6 }).addTo(mapLayer);
         L.circleMarker([last.lat, last.lng], { radius: 9, color: "#fff", weight: 2, fillColor: age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888", fillOpacity: 1 })
-          .bindPopup("<b>" + esc(nm) + "</b><br>" + ago(Date.parse(last.created_at)) + (last.ward ? "<br>Ward: " + esc(last.ward) : "")).bindTooltip(nm, { permanent: true, direction: "top", offset: [0, -8] }).addTo(mapLayer);
+          .bindPopup("<b>" + esc(nm) + "</b><br>" + ago(Date.parse(last.created_at)) + (last.ward ? "<br>Ward: " + esc(last.ward) : "") + "<br>" + esc(trackInfo(arr).text)).bindTooltip(nm, { permanent: true, direction: "top", offset: [0, -8] }).addTo(mapLayer);
+        var ti = trackInfo(arr);
+        if (ti.dest) {
+          L.polyline([[last.lat, last.lng], [ti.dest.lat, ti.dest.lng]], { color: "#C48A14", weight: 2, dashArray: "6 6", opacity: 0.8 }).addTo(mapLayer);
+          L.circleMarker([ti.dest.lat, ti.dest.lng], { radius: 5, color: "#C48A14", weight: 2, fillOpacity: 0.3 }).bindTooltip("Destination: " + last.ward).addTo(mapLayer);
+        }
+        if (ti.deg != null) L.marker([last.lat, last.lng], { icon: L.divIcon({ className: "hdg", html: '<div style="transform:rotate(' + Math.round(ti.deg) + 'deg)">&#9650;</div>', iconSize: [22, 22], iconAnchor: [11, 30] }), interactive: false }).addTo(mapLayer);
         bounds.push([last.lat, last.lng]);
       });
       if (bounds.length && !mapFitted) { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 }); mapFitted = true; }
     }
     var enums = Object.keys(mapProfiles).map(function (k) { return mapProfiles[k]; }).filter(function (x) { return x.role === "enumerator" && x.active; });
     $("fieldList").innerHTML = enums.map(function (u) {
-      var arr = by[u.id], dot = "#888", seen = "No location yet", st = "-";
+      var arr = by[u.id], dot = "#888", seen = "No location yet", st = "-", hd = "-";
       if (arr) {
         var l = arr[0], age = Date.now() - Date.parse(l.created_at); dot = age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888"; seen = ago(Date.parse(l.created_at));
         var f = l.ward && fences[l.ward];
         st = f ? (distM(l.lat, l.lng, f.lat, f.lng) <= f.radius_m ? "Inside " + l.ward : "Outside " + l.ward + " (" + fmtDist(distM(l.lat, l.lng, f.lat, f.lng)) + " from centre)") : (l.ward ? "Working in " + l.ward : "Ward not chosen");
       }
-      return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td></tr>';
-    }).join("") || '<tr><td colspan="3">No enumerators yet.</td></tr>';
+      if (arr) hd = trackInfo(arr).text;
+      return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td><td>' + esc(hd) + '</td></tr>';
+    }).join("") || '<tr><td colspan="4">No enumerators yet.</td></tr>';
     var missing = wards.filter(function (w) { return !fences[w]; }).length, custom = Object.keys(fences).filter(function (w) { return fences[w].source === "admin"; }).length;
     $("noFence").textContent = missing ? missing + " of " + wards.length + " wards have no fence yet. Reload this page to create them." : "All " + wards.length + " wards have a fence (" + custom + " set by you, the rest default).";
   }
