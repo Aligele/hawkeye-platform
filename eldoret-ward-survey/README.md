@@ -39,3 +39,7 @@ questionnaire with no saved interviews, so data cannot be lost by accident. Run 
 Paste format: separate questions with a blank line; the first line is the question and each following line is an answer.
 No answers = short text. End a question with `(multi)` or `(multi 3)` for multiple choice and with `*` if it is required.
 A line starting with `#` names a section.
+
+Questions can also be imported from a file in the editor: Word (`.docx`), text (`.txt`, `.md`), CSV or JSON. Word and text files use the
+paste format above. CSV needs a header row with `Section, Question, Type, Required, Options, Max` (options separated by `|`;
+type is single, multi, text or long); the editor has a template to download. JSON is a list of questions, or `{ "title", "questions" }`.

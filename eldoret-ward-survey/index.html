@@ -206,6 +206,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 .qe-q .row select, .qe-q .row input[type="number"] { font: inherit; font-size: 14px; background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); border-radius: 8px; padding: 6px 8px; min-height: 36px; }
 .qe-q .row input[type="number"] { width: 70px; }
 .qe-q .row label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: 13px; color: var(--ink); }
+.qe-file { margin-top: 12px; }
+.qe-file input[type="file"] { display: block; margin-top: 4px; font: inherit; font-size: 14px; max-width: 100%; }
 .qe-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .qe-actions .btn { width: auto; }
 </style>
@@ -301,6 +303,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
           <textarea class="inp qe" id="qnPaste" rows="7" placeholder="# Past vote&#10;Did you vote in 2022? *&#10;Yes&#10;No&#10;&#10;What matters most to you? (multi 2)&#10;Jobs&#10;Security&#10;Health"></textarea>
           <button class="btn ghost small" id="qnPasteAdd" type="button" style="margin-top:6px">Add these questions</button>
         </details>
+        <div class="qe-file">
+          <label for="qnFile">Or import the questions from a file</label>
+          <input type="file" id="qnFile" accept=".docx,.txt,.md,.csv,.json,text/plain,text/csv,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          <p class="empty" style="margin:6px 0 0">Word (.docx), text (.txt, .md), CSV or JSON. In Word and text files, put a blank line between questions and write the answers on the lines under each question, as in the paste box. <button class="link" id="qnTemplate" type="button">Download the CSV template</button></p>
+        </div>
         <div id="qnRows"></div>
         <div class="qe-actions">
           <button class="btn ghost small" id="qnAddQ" type="button">Add a question</button>
@@ -1676,8 +1683,16 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   function parsePaste(txt) {
     var out = [], sec = "";
+    var blocks = [];
     txt.replace(/\r/g, "").split(/\n\s*\n/).forEach(function (block) {
-      var lines = block.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      var cur = null;
+      block.split("\n").map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (l) {
+        var isQ = /\?\s*(\*|\(\s*multi(\s+\d+)?\s*\)(\s*\*)?)?\s*$/i.test(l);
+        if (!cur || (isQ && cur.some(function (x) { return x.charAt(0) !== "#"; }))) { cur = []; blocks.push(cur); }
+        cur.push(l);
+      });
+    });
+    blocks.forEach(function (lines) {
       while (lines.length && lines[0].charAt(0) === "#") sec = lines.shift().replace(/^#+\s*/, "");
       if (!lines.length) return;
       var t = lines.shift(), req = false, type = "text", max = "";
@@ -1720,6 +1735,101 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       closeEditor(); await loadQuestionnaires(); if (activate) syncQuestionnaire(false);
     } catch (err) { toast("Could not save. Check the connection and try again."); }
   }
+  /* ---------- import questions from a file (.docx, .txt, .md, .csv, .json) ---------- */
+  function readBuf(file) { return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = function () { rej(fr.error); }; fr.readAsArrayBuffer(file); }); }
+  /* Reads one entry out of a .zip (a .docx is a zip) without any library. */
+  async function unzipEntry(buf, name) {
+    var v = new DataView(buf), u8 = new Uint8Array(buf), i = u8.length - 22;
+    for (; i >= 0 && v.getUint32(i, true) !== 0x06054b50; i--);
+    if (i < 0) throw new Error("not a zip");
+    var n = v.getUint16(i + 10, true), off = v.getUint32(i + 16, true);
+    for (var k = 0; k < n; k++) {
+      var method = v.getUint16(off + 10, true), csize = v.getUint32(off + 20, true), nl = v.getUint16(off + 28, true), el = v.getUint16(off + 30, true), cl = v.getUint16(off + 32, true), lho = v.getUint32(off + 42, true);
+      if (new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nl)) === name) {
+        var start = lho + 30 + v.getUint16(lho + 26, true) + v.getUint16(lho + 28, true), data = u8.subarray(start, start + csize);
+        if (method === 0) return new TextDecoder().decode(data);
+        if (method !== 8 || typeof DecompressionStream === "undefined") throw new Error("unsupported");
+        return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+      }
+      off += 46 + nl + el + cl;
+    }
+    throw new Error("entry not found");
+  }
+  function docxText(xml) {
+    return xml.split("</w:p>").map(function (p) {
+      return p.replace(/<w:tab\s*\/>/g, "\t").replace(/<w:br\s*\/>/g, "\n").replace(/<[^>]+>/g, "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+    }).join("\n");
+  }
+  function parseCsv(txt) {
+    var rowsOut = [], row = [], cur = "", q = false, i, c;
+    txt = txt.replace(/^﻿/, "");
+    for (i = 0; i < txt.length; i++) {
+      c = txt[i];
+      if (q) { if (c === '"') { if (txt[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ",") { row.push(cur); cur = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && txt[i + 1] === "\n") i++; row.push(cur); cur = ""; if (row.some(function (x) { return x.trim(); })) rowsOut.push(row); row = []; }
+      else cur += c;
+    }
+    row.push(cur); if (row.some(function (x) { return x.trim(); })) rowsOut.push(row);
+    return rowsOut;
+  }
+  function typeOf(t, hasOpts) {
+    t = String(t || "").trim().toLowerCase();
+    if (/^(multi|multiple)/.test(t)) return hasOpts ? "multi" : "text";
+    if (/^(long|area|paragraph)/.test(t)) return "area";
+    if (/^(text|short|open)/.test(t)) return "text";
+    if (/^(single|one|choice)/.test(t)) return hasOpts ? "single" : "text";
+    return hasOpts ? "single" : "text";
+  }
+  function fromCsv(txt) {
+    var t = parseCsv(txt); if (t.length < 2) return [];
+    var head = t[0].map(function (h) { return h.trim().toLowerCase(); });
+    var ix = function (names) { for (var k = 0; k < names.length; k++) { var j = head.indexOf(names[k]); if (j > -1) return j; } return -1; };
+    var iS = ix(["section"]), iQ = ix(["question", "text"]), iT = ix(["type"]), iR = ix(["required"]), iO = ix(["options", "answers"]), iM = ix(["max", "up to"]);
+    if (iQ < 0) return [];
+    return t.slice(1).map(function (r) {
+      var opts = iO > -1 ? (r[iO] || "").split("|").map(function (s) { return s.trim(); }).filter(Boolean) : [];
+      return { section: iS > -1 ? (r[iS] || "").trim() : "", text: (r[iQ] || "").trim(), type: typeOf(iT > -1 ? r[iT] : "", opts.length > 0), options: opts.join("\n"), max: iM > -1 ? (r[iM] || "").trim() : "", required: iR > -1 && /^(y|yes|true|1|\*|required)/i.test((r[iR] || "").trim()) };
+    }).filter(function (q) { return q.text; });
+  }
+  function fromJson(txt) {
+    var p = JSON.parse(txt), arr = Array.isArray(p) ? p : (p && p.questions) || [];
+    return { title: p && !Array.isArray(p) && p.title ? String(p.title) : "", questions: arr.map(function (q) {
+      var o = Array.isArray(q.options) ? q.options : String(q.options || "").split("|");
+      o = o.map(function (s) { return String(s).trim(); }).filter(Boolean);
+      return { section: String(q.section || ""), text: String(q.text || q.question || "").trim(), type: typeOf(q.type, o.length > 0), options: o.join("\n"), max: q.max > 0 ? String(q.max) : "", required: !!q.required };
+    }).filter(function (q) { return q.text; }) };
+  }
+  async function importFile(file) {
+    if (!file || !qnDraft) return;
+    var name = file.name || "", ext = (name.split(".").pop() || "").toLowerCase(), add = [], title = "";
+    try {
+      var buf = await readBuf(file);
+      if (ext === "docx") add = parsePaste(docxText(await unzipEntry(buf, "word/document.xml")));
+      else {
+        var txt = new TextDecoder("utf-8").decode(buf);
+        if (ext === "csv") add = fromCsv(txt);
+        else if (ext === "json") { var j = fromJson(txt); add = j.questions; title = j.title; }
+        else add = parsePaste(txt.replace(/^﻿/, ""));
+      }
+    } catch (e) { toast(ext === "doc" ? "Old .doc files are not supported. Save it as .docx and try again." : "Could not read that file. Use .docx, .txt, .csv or .json."); return; }
+    if (!add.length) { toast("No questions found in that file. Put a blank line between questions, or use the CSV template."); return; }
+    qnDraft.questions = qnDraft.questions.filter(function (q) { return q.text.trim(); }).concat(add);
+    if (!$("qnTitle").value.trim()) $("qnTitle").value = title || name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+    renderEditorRows(); toast(add.length + " question" + (add.length === 1 ? "" : "s") + " imported from " + name + ". Check them, then save.");
+  }
+  function downloadTemplate() {
+    var csv = "Section,Question,Type,Required,Options,Max\r\n" +
+      "Past vote,Did you vote in 2022?,single,yes,Yes|No|Prefer not to say,\r\n" +
+      "Past vote,What mattered most to you?,multi,no,Jobs|Security|Health|Education,2\r\n" +
+      "Issues,Anything else you would like to add?,long,no,,\r\n";
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = "questionnaire-template.csv";
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
   function bindQnUi() {
     $("tab-qn").addEventListener("click", function () { showTab("qn"); });
     $("qnNew").addEventListener("click", function () { openEditor(null); });
@@ -1735,6 +1845,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       qnDraft.questions = qnDraft.questions.filter(function (q) { return q.text.trim(); }).concat(add);
       $("qnPaste").value = ""; renderEditorRows(); toast(add.length + " question" + (add.length === 1 ? "" : "s") + " added.");
     });
+    $("qnFile").addEventListener("change", function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; importFile(f); });
+    $("qnTemplate").addEventListener("click", downloadTemplate);
     $("qnSaveDraft").addEventListener("click", function () { saveQn(false); });
     $("qnSaveAct").addEventListener("click", function () { saveQn(true); });
     $("qnCancel").addEventListener("click", closeEditor);
