@@ -306,7 +306,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   /* ---------- constants ---------- */
   var TARGET_PER_WARD = 50;
   var WARD_CONST = {};            /* ward label -> constituency */
-  var AREAS = null, WBL = {}, CWARDS = {}, COUNTIES = [];   /* national county / ward list */
+  var AREAS = null, WBL = {}, CWARDS = {}, COUNTIES = [], CONSL = [];   /* national county / ward list */
   var CONSENT_YES = "Yes, continue", CONSENT_NO = "No, end the interview";
   var SAME = "Same candidate / party", DIFF = "Different candidate / party", NOVOTE22 = "Did not vote in 2022", UNDEC_NOW = "Undecided now";
   var REASON_PAST = ["Economy / cost of living", "Jobs / youth employment", "Fighting corruption", "Security", "Health / education", "Farming / crop prices", "Leader's character / experience", "Party loyalty", "Candidate is from my community / region", "Development record", "Campaign promises", "Advice from family / friends / leaders", "Other", "Cannot remember"];
@@ -431,9 +431,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     d.counties.forEach(function (c) { cn[c.c] = c; });
     COUNTIES = d.counties.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; });
     WBL = {}; CWARDS = {}; WARD_CONST = {};
+    CONSL = d.cons.map(function (k) { return { c: k.c, county: cn[k.cc].n, lat: k.lat, lng: k.lng, r: k.r }; });
     d.wards.forEach(function (w) {
       var k = kn[w.k], c = cn[k.cc];
-      var o = { code: w.c, name: w.n, label: w.l, county: c.n, cons: k.n, lat: k.lat, lng: k.lng, r: k.r };
+      var o = { code: w.c, name: w.n, label: w.l, county: c.n, cons: k.n, k: k.c, lat: k.lat, lng: k.lng, r: k.r };
       WBL[w.l] = o; WARD_CONST[w.l] = k.n; (CWARDS[c.n] = CWARDS[c.n] || []).push(o);
     });
     Object.keys(CWARDS).forEach(function (c) { CWARDS[c].sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; }); });
@@ -459,19 +460,46 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     sel.innerHTML = '<option value="">Choose your name</option>' + interviewers.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
     if (ans.interviewer && interviewers.indexOf(ans.interviewer) > -1) sel.value = ans.interviewer; else if (ans.interviewer) ans.interviewer = "";
   }
+  /* Enumerators see only the county and wards around their phone; admins see everything. */
+  function locCandidates() {
+    if (isAdmin || !AREAS) return null;
+    var out = { counties: [], cons: {} };
+    if (!lastPos) return out;
+    CONSL.map(function (k) { return { k: k, d: distM(lastPos.lat, lastPos.lng, k.lat, k.lng) }; })
+      .filter(function (x) { return x.d <= x.k.r; })
+      .sort(function (a, b) { return a.d - b.d; }).slice(0, 2)
+      .forEach(function (x) { out.cons[x.k.c] = 1; if (out.counties.indexOf(x.k.county) < 0) out.counties.push(x.k.county); });
+    return out;
+  }
+  function allowedCounties() { var c = locCandidates(); return c ? c.counties : COUNTIES.map(function (x) { return x.n; }); }
+  function allowedWards(county) { var c = locCandidates(), all = CWARDS[county] || []; return c ? all.filter(function (o) { return c.cons[o.k]; }) : all; }
+  var locKey = "";
+  function updateLocOptions() {
+    if (isAdmin || !AREAS) return;
+    var c = locCandidates(), key = c.counties.join("|") + "#" + Object.keys(c.cons).join(",");
+    if (key === locKey) return; locKey = key;
+    fillCountySelect(); fillWardSelect();
+    var cs = document.querySelector('select[data-in="county"]'), ws = document.querySelector('select[data-in="ward"]');
+    if (cs && !ans.county && c.counties.length === 1) { ans.county = c.counties[0]; cs.value = ans.county; fillWardSelect(); ws = document.querySelector('select[data-in="ward"]'); }
+    var wl = ans.county ? allowedWards(ans.county) : [];
+    if (ws && !ans.ward && wl.length === 1) { ans.ward = wl[0].label; ws.value = ans.ward; ensureFence(ans.ward); }
+    refresh();
+  }
   function fillCountySelect() {
     var sel = document.querySelector('select[data-in="county"]');
     if (!sel) return;
-    sel.innerHTML = '<option value="">Choose a county</option>' + COUNTIES.map(function (c) { return '<option value="' + esc(c.n) + '">' + esc(c.n) + '</option>'; }).join("");
-    if (ans.county && CWARDS[ans.county]) sel.value = ans.county; else if (ans.county) ans.county = "";
+    var names = allowedCounties();
+    sel.disabled = !names.length;
+    sel.innerHTML = '<option value="">' + (names.length ? (isAdmin ? "Choose a county" : "Your county (from phone location)") : (lastPos ? "No county found at your location" : "Waiting for your location...")) + '</option>' + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join("");
+    if (ans.county && names.indexOf(ans.county) > -1) sel.value = ans.county; else if (ans.county) { ans.county = ""; ans.ward = ""; }
   }
   function fillWardSelect() {
     var sel = document.querySelector('select[data-in="ward"]');
     if (!sel) return;
-    var list = ans.county ? (CWARDS[ans.county] || []) : [];
+    var list = ans.county ? allowedWards(ans.county) : [];
     sel.disabled = !list.length;
-    sel.innerHTML = '<option value="">' + (list.length ? "Choose a ward" : "Choose a county first") + '</option>' + list.map(function (o) { return '<option value="' + esc(o.label) + '">' + esc(o.name) + ' (' + esc(o.cons) + ')</option>'; }).join("");
-    if (ans.ward && WBL[ans.ward] && WBL[ans.ward].county === ans.county) { sel.value = ans.ward; ensureFence(ans.ward); } else if (ans.ward) { ans.ward = ""; }
+    sel.innerHTML = '<option value="">' + (list.length ? (isAdmin ? "Choose a ward" : "Your ward (near your location)") : (ans.county ? "No ward found at your location" : "Choose a county first")) + '</option>' + list.map(function (o) { return '<option value="' + esc(o.label) + '">' + esc(o.name) + ' (' + esc(o.cons) + ')</option>'; }).join("");
+    if (ans.ward && list.some(function (x) { return x.label === ans.ward; })) { sel.value = ans.ward; ensureFence(ans.ward); } else if (ans.ward) { ans.ward = ""; }
   }
   function syncControls() {
     document.querySelectorAll(".q").forEach(function (el) {
@@ -615,7 +643,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   function onPos(p) {
     lastPos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy || 0, ts: Date.now() };
-    geoErr = ""; gateMsg(null); refresh(); logLocation();
+    geoErr = ""; gateMsg(null); updateLocOptions(); refresh(); logLocation();
   }
   function onPosErr(e) {
     geoErr = e && e.code === 1 ? "Location is blocked. Allow location for this app in your phone settings, then reload." : "Cannot get your location yet. Move outdoors and wait a moment.";
