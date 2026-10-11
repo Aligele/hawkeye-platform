@@ -989,7 +989,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var list = rows.filter(inFilter);
     var cl = contacts.filter(inFilter);
     if (!list.length && !cl.length) { toast("Nothing to download yet."); return; }
-    function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.recorded_at = new Date(o.ts).toISOString(); return o; }
+    function clean(r) { var o = Object.assign({}, r); o.id = o._id; delete o._id; delete o._path; o.gps_lat = o._lat == null ? null : o._lat; o.gps_lng = o._lng == null ? null : o._lng; delete o._lat; delete o._lng; o.recorded_at = new Date(o.ts).toISOString(); return o; }
     var out = {
       survey: "Ward Voter Survey",
       exported_at: new Date().toISOString(),
