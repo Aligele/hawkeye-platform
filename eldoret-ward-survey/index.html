@@ -168,6 +168,10 @@ details.person summary small { display: block; color: var(--muted); font-size: 1
 #map { height: 380px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; z-index: 0; }
 .geo-ok { color: var(--accent); } .geo-bad { color: var(--bad); font-weight: 600; }
 .fl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.gate { position: fixed; inset: 0; z-index: 50; background: rgba(15,30,25,.92); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.gate[hidden] { display: none; }
+.gate-in { background: var(--card, #fff); color: var(--ink, #111); border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; }
+.gate-in h2 { margin: 0 0 8px; }
 .hdg { background: none; border: 0; } .hdg div { width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 20px; color: #0B5D3B; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .fl td, .fl th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
@@ -288,6 +292,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     </details>
   </main>
 </div>
+<div class="gate" id="locGate" hidden><div class="gate-in"><h2>Turn on your location</h2><p id="locGateMsg">Waiting for your phone location...</p><p class="empty">The survey admin follows each enumerator's phone location while the app is open, wherever you are. The questionnaire opens as soon as your location is found.</p><button class="btn" id="locRetry" type="button">Try again</button></div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -597,17 +602,24 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (d > f.radius_m) return { enforced: true, ok: false, msg: "You are " + fmtDist(d) + " from the " + ward + " ward centre. Interviews can be saved only within " + fmtDist(f.radius_m) + "." };
     return { enforced: true, ok: true, msg: "Location confirmed inside " + ward + " ward." };
   }
+  var wakeLock = null;
+  async function keepAwake() { try { if (navigator.wakeLock && document.visibilityState === "visible") wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} }
+  function gateMsg(m) { var g = $("locGate"); if (!g) return; if (m == null) { g.hidden = true; return; } $("locGateMsg").textContent = m; g.hidden = false; }
   function startTracking() {
-    if (isAdmin || watchId !== null) return;
-    if (!navigator.geolocation) { geoErr = "This phone cannot share its location."; return; }
+    if (isAdmin) return;
+    if (!lastPos) gateMsg("Waiting for your phone location...");
+    keepAwake();
+    if (watchId !== null) return;
+    if (!navigator.geolocation) { geoErr = "This phone cannot share its location."; gateMsg(geoErr); return; }
     watchId = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
   }
   function onPos(p) {
     lastPos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy || 0, ts: Date.now() };
-    geoErr = ""; refresh(); logLocation();
+    geoErr = ""; gateMsg(null); refresh(); logLocation();
   }
   function onPosErr(e) {
     geoErr = e && e.code === 1 ? "Location is blocked. Allow location for this app in your phone settings, then reload." : "Cannot get your location yet. Move outdoors and wait a moment.";
+    if (!lastPos) gateMsg(geoErr);
     refresh();
   }
   async function logLocation() {
@@ -615,6 +627,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     lastLogAt = Date.now();
     try { await sb.from("locations").insert({ lat: lastPos.lat, lng: lastPos.lng, accuracy_m: lastPos.acc, ward: ans.ward || null }); } catch (e) {}
   }
+  document.addEventListener("visibilitychange", function () {
+    if (isAdmin || !uid || document.visibilityState !== "visible") return;
+    keepAwake(); lastLogAt = 0; freshPos();
+  });
   function freshPos() {
     return new Promise(function (resolve) {
       if (!navigator.geolocation) { resolve(); return; }
@@ -1296,7 +1312,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     var enums = Object.keys(mapProfiles).map(function (k) { return mapProfiles[k]; }).filter(function (x) { return x.role === "enumerator" && x.active; });
     $("fieldList").innerHTML = enums.map(function (u) {
-      var arr = by[u.id], dot = "#888", seen = "No location yet", st = "-", hd = "-";
+      var arr = by[u.id], dot = "#888", seen = "No location yet", st = "Never reported (not signed in, app closed, or location blocked)", hd = "-";
       if (arr) {
         var l = arr[0], age = Date.now() - Date.parse(l.created_at); dot = age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888"; seen = ago(Date.parse(l.created_at));
         var f = l.ward && fences[l.ward];
@@ -1475,6 +1491,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     }
     fences = {}; fenceSt = {};
     if (!isAdmin && ans.ward) ensureFence(ans.ward);
+    $("locRetry").addEventListener("click", function () { if (watchId !== null && navigator.geolocation) { navigator.geolocation.clearWatch(watchId); watchId = null; } startTracking(); });
     if (!isAdmin) { startTracking(); $("notices").innerHTML = '<div class="banner ok">This app shares your phone location with the survey admin while it is open, and interviews can be saved only inside the ward you choose.</div>'; }
     updateWardFilter(); refresh(); updateStatus();
   }
