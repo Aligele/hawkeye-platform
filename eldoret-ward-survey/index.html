@@ -96,6 +96,15 @@ p { margin: 0; }
 textarea.inp { min-height: 76px; resize: vertical; }
 .inp:focus { border-color: var(--accent); outline: none; }
 .script { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-top: 14px; font-style: italic; }
+body.xf-mode .script, body.xf-mode #stop { display: none; }
+#xform [hidden] { display: none !important; }
+#xform .note, #xform .chips { padding-left: 0; }
+.xf-grp { margin-top: 6px; }
+.xf-sub, .xf-inst-h { font-size: 15px; margin: 16px 0 0; color: var(--accent); }
+.xf-inst { margin-top: 14px; padding: 4px 12px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.xf-err { color: var(--bad); }
+.xf-res-h { margin: 14px 0 6px; font-size: 15px; }
+.q.invalid { border-color: var(--bad); }
 .invalid { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
 .submit-bar { margin-top: 22px; }
 .btn { font: inherit; font-weight: 600; font-size: 16px; border: 0; border-radius: 12px; padding: 14px 18px; background: var(--accent); color: var(--accent-ink); cursor: pointer; width: 100%; min-height: 50px; }
@@ -248,6 +257,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <div class="banner warn" style="margin-top:10px">Read each question exactly as written, in a neutral tone. Do not read out candidate names. Never record a name or ID number. A phone number or email is taken only in the optional last section, with the respondent's agreement.</div>
     <div class="banner ok" id="qnBadge" hidden></div>
     <form id="form" autocomplete="off" novalidate></form>
+    <div id="xform"></div>
     <datalist id="dl-cands"></datalist>
     <div id="stop" class="banner bad" hidden></div>
     <div id="missing" class="banner bad" hidden></div>
@@ -293,7 +303,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <div class="card" style="margin-top:12px"><h3>Questionnaires</h3>
       <p class="sub">Add the questions here and make them active. Enumerators then answer them after the interview details and screening. Close or delete a questionnaire when fieldwork is done; the built-in questions come back when none is active.</p>
       <div id="qnList"></div>
-      <div style="margin-top:12px"><button class="btn ghost" id="qnNew" type="button">New questionnaire</button></div>
+      <div style="margin-top:12px"><button class="btn ghost" id="qnNew" type="button">New questionnaire</button>
+        <button class="btn ghost" id="qnXfBuiltin" type="button">Add the Kenya school retention survey</button>
+        <button class="btn ghost" id="qnXfImport" type="button">Import ODK / Kobo form (.json)</button>
+        <button class="btn ghost" id="qnXfCsv" type="button">Download survey tables (CSV)</button>
+        <input type="file" id="qnXfFile" accept=".json,application/json" hidden></div>
     </div>
     <div class="card" id="qnEditor" style="margin-top:12px" hidden>
       <h3 id="qnEdTitle">New questionnaire</h3>
@@ -466,11 +480,460 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     return secs;
   }
   function applyQuestionnaire(qn) {
+    var xdef = qn && xfOf(qn);
+    if (xdef) { applyXform(qn, xdef); return; }
+    XF = null; xa = {};
     CUSTOM = qn || null;
     SECTIONS = BUILTIN.slice(0, 2).concat(qn ? compileSections(qn) : BUILTIN.slice(2));
     indexQ(); starKey = "";
     buildForm();
     var b = $("qnBadge"); if (b) { b.hidden = !qn; b.textContent = qn ? "Questionnaire in use: " + qn.title : ""; }
+  }
+  /* ---------- XLSForm engine ----------
+     Runs ODK / KoboToolbox forms (the JSON export of an XLSForm): skip logic (relevant), number checks (constraint),
+     calculations, groups and repeats (child roster, school rows). County, ward, enumerator and GPS come from the app. */
+  var XF = null, xa = {};
+  var XF_SKIP = { start: 1, end: 1, today: 1, deviceid: 1, enumerator_id: 1, county: 1, sub_county: 1, ward: 1 };
+  function xfOf(qn) {
+    var a = qn && qn.questions; if (!Array.isArray(a)) return null;
+    for (var i = 0; i < a.length; i++) if (a[i] && a[i].type === "xlsform" && a[i].xlsform) return a[i].xlsform;
+    return null;
+  }
+  function xfIsRow(r) { return !!(r && r._qid && QNS[r._qid] && QNS[r._qid].xfc); }
+  /* --- expressions --- */
+  function xfTokens(s) {
+    var t = [], i = 0, m;
+    while (i < s.length) {
+      var c = s.charAt(i);
+      if (/\s/.test(c)) { i++; continue; }
+      if ((m = /^\$\{([^}]+)\}/.exec(s.slice(i)))) { t.push({ k: "ref", v: m[1] }); i += m[0].length; continue; }
+      if (c === "'" || c === '"') { var j = s.indexOf(c, i + 1); if (j < 0) throw new Error("str"); t.push({ k: "str", v: s.slice(i + 1, j) }); i = j + 1; continue; }
+      if ((m = /^\d+(\.\d+)?/.exec(s.slice(i)))) { t.push({ k: "num", v: parseFloat(m[0]) }); i += m[0].length; continue; }
+      if (s.substr(i, 2) === "..") { t.push({ k: "dotdot" }); i += 2; continue; }
+      if (c === ".") { t.push({ k: "dot" }); i++; continue; }
+      if ((m = /^(<=|>=|!=)/.exec(s.slice(i)))) { t.push({ k: "op", v: m[1] }); i += 2; continue; }
+      if ("=<>+-*(),".indexOf(c) > -1) { t.push({ k: "op", v: c }); i++; continue; }
+      if ((m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(s.slice(i)))) { t.push({ k: "word", v: m[0] }); i += m[0].length; continue; }
+      throw new Error("tok");
+    }
+    return t;
+  }
+  function xfNum(v) { if (v === "" || v == null || typeof v === "boolean") return NaN; if (Array.isArray(v)) return NaN; var n = Number(v); return isFinite(n) ? n : NaN; }
+  function xfStr(v) { return v == null ? "" : Array.isArray(v) ? v.join(" ") : String(v); }
+  function xfTruthy(v) { return v === true || (typeof v === "number" && v !== 0) || (typeof v === "string" && v !== "" && v !== "0" && v !== "false"); }
+  function xfCmp(a, b, op) {
+    var sa = xfStr(a), sb = xfStr(b);
+    if (op === "=" || op === "!=") {
+      var na = xfNum(a), nb = xfNum(b), eq = (!isNaN(na) && !isNaN(nb)) ? na === nb : sa === sb;
+      return op === "=" ? eq : !eq;
+    }
+    if (sa === "" || sb === "") return false;
+    var x = xfNum(a), y = xfNum(b), p = (!isNaN(x) && !isNaN(y)), l = p ? x : sa, r = p ? y : sb;
+    return op === "<" ? l < r : op === ">" ? l > r : op === "<=" ? l <= r : l >= r;
+  }
+  function xfExpr(src) {
+    if (src == null || String(src).trim() === "") return null;
+    try {
+      var tk = xfTokens(String(src)), p = 0;
+      var peek = function () { return tk[p]; }, isOp = function (v) { return tk[p] && tk[p].k === "op" && tk[p].v === v; }, isW = function (v) { return tk[p] && tk[p].k === "word" && tk[p].v === v; };
+      var pOr = function () { var a = pAnd(); while (isW("or")) { p++; a = (function (l, r) { return function (c) { return xfTruthy(l(c)) || xfTruthy(r(c)); }; })(a, pAnd()); } return a; };
+      var pAnd = function () { var a = pEq(); while (isW("and")) { p++; a = (function (l, r) { return function (c) { return xfTruthy(l(c)) && xfTruthy(r(c)); }; })(a, pEq()); } return a; };
+      var pEq = function () { var a = pRel(); while (isOp("=") || isOp("!=")) { var o = tk[p++].v; a = (function (l, r, op) { return function (c) { return xfCmp(l(c), r(c), op); }; })(a, pRel(), o); } return a; };
+      var pRel = function () { var a = pAdd(); while (isOp("<") || isOp(">") || isOp("<=") || isOp(">=")) { var o = tk[p++].v; a = (function (l, r, op) { return function (c) { return xfCmp(l(c), r(c), op); }; })(a, pAdd(), o); } return a; };
+      var pAdd = function () { var a = pMul(); while (isOp("+") || isOp("-")) { var o = tk[p++].v; a = (function (l, r, op) { return function (c) { var x = xfNum(l(c)), y = xfNum(r(c)); return op === "+" ? x + y : x - y; }; })(a, pMul(), o); } return a; };
+      var pMul = function () { var a = pUn(); while (isOp("*") || isW("div") || isW("mod")) { var o = tk[p++].v; a = (function (l, r, op) { return function (c) { var x = xfNum(l(c)), y = xfNum(r(c)); return op === "*" ? x * y : op === "div" ? x / y : x % y; }; })(a, pUn(), o); } return a; };
+      var pUn = function () {
+        if (isOp("-")) { p++; var e = pUn(); return function (c) { return -xfNum(e(c)); }; }
+        if (isW("not")) { p++; var f = pUn(); return function (c) { return !xfTruthy(f(c)); }; }
+        return pPrim();
+      };
+      var pPrim = function () {
+        var t = tk[p++]; if (!t) throw new Error("eof");
+        if (t.k === "num" || t.k === "str") { var v = t.v; return function () { return v; }; }
+        if (t.k === "ref") { var nm = t.v; return function (c) { return c.get(nm); }; }
+        if (t.k === "dot") return function (c) { return c.dot; };
+        if (t.k === "dotdot") return function (c) { return c.pos; };
+        if (t.k === "op" && t.v === "(") { var e = pOr(); if (!isOp(")")) throw new Error(")"); p++; return e; }
+        if (t.k === "word") {
+          if (!isOp("(")) throw new Error("fn"); p++;
+          var args = []; if (!isOp(")")) { args.push(pOr()); while (isOp(",")) { p++; args.push(pOr()); } }
+          if (!isOp(")")) throw new Error(")"); p++;
+          var fn = t.v;
+          if (fn === "if") return function (c) { return xfTruthy(args[0](c)) ? args[1](c) : args[2](c); };
+          if (fn === "position") return function (c) { return c.pos; };
+          if (fn === "selected") return function (c) { var a = args[0](c), b = xfStr(args[1](c)); return Array.isArray(a) ? a.indexOf(b) > -1 : xfStr(a).split(" ").indexOf(b) > -1; };
+          if (fn === "string-length") return function (c) { return xfStr(args[0](c)).length; };
+          throw new Error("fn " + fn);
+        }
+        throw new Error("tok");
+      };
+      var out = pOr(); if (p < tk.length) throw new Error("trail");
+      return out;
+    } catch (e) { return function () { return true; }; }
+  }
+  /* --- compile the form definition --- */
+  function xfCompile(def) {
+    var lists = {};
+    (def.choices || []).forEach(function (c) { (lists[c.list_name] = lists[c.list_name] || []).push({ n: String(c.name), l: String(c.label == null ? c.name : c.label) }); });
+    var root = { kind: "root", children: [], rep: null }, stack = [root], nodes = [], top = {};
+    function reg(n) { n.id = nodes.length; nodes.push(n); return n; }
+    (def.survey || []).forEach(function (r) {
+      var t = String(r.type || "").trim(), cur = stack[stack.length - 1];
+      if (t === "begin_group" || t === "begin_repeat") {
+        var isRep = t === "begin_repeat";
+        var g = reg({ kind: isRep ? "repeat" : "group", name: r.name, label: r.label || "", rel: xfExpr(r.relevant), count: isRep ? xfExpr(r.repeat_count) : null, children: [], parent: cur, rep: cur.kind === "repeat" ? cur : cur.rep });
+        if (isRep) g.fields = {};
+        cur.children.push(g); stack.push(g); return;
+      }
+      if (t === "end_group" || t === "end_repeat") { if (stack.length > 1) stack.pop(); return; }
+      if (XF_SKIP[r.name]) return;
+      var q = { kind: "q", name: r.name, label: r.label || "", hint: r.hint || "", req: /^(yes|true)/i.test(String(r.required || "")), rel: xfExpr(r.relevant), cons: xfExpr(r.constraint), consMsg: r.constraint_message || "", parent: cur, rep: cur.kind === "repeat" ? cur : cur.rep };
+      var m = /^(select_one|select_multiple)\s+(\S+)/.exec(t);
+      if (t === "note") q.type = "note";
+      else if (t === "text") q.type = "text";
+      else if (t === "integer" || t === "decimal") q.type = t;
+      else if (t === "calculate") { q.type = "calc"; q.calc = xfExpr(r.calculation); }
+      else if (t === "geopoint") q.type = "geo";
+      else if (m) { q.type = m[1]; q.opts = (lists[m[2]] || []).slice(); }
+      else return;
+      reg(q); cur.children.push(q); if (!q.rep) top[q.name] = q;
+      var rp = q.rep; if (rp) rp.fields[q.name] = q;
+    });
+    return { def: def, root: root, nodes: nodes, top: top, lists: lists, counts: {}, start: Date.now(), title: (def.settings && def.settings[0] && def.settings[0].form_title) || "Survey" };
+  }
+  /* --- contexts and visibility --- */
+  function xfKey(n, idx) { return n.rep ? n.rep.name + "." + idx + "." + n.name : n.name; }
+  function xfCtx(rep, idx, dot) {
+    var P = rep ? rep.name + "." + idx + "." : "", self = { dot: dot, pos: idx || 1, get: null };
+    self.get = function (name) {
+      if (rep && rep.fields[name]) { var f = rep.fields[name]; return f.type === "calc" ? (f.calc ? f.calc(self) : "") : xa[P + name]; }
+      var t = XF && XF.top[name]; if (t && t.type === "calc") return t.calc ? t.calc(self) : "";
+      return xa[name];
+    };
+    return self;
+  }
+  function xfVisible(n, idx) {
+    for (var a = n; a && a.kind !== "root"; a = a.parent) {
+      if (!a.rel) continue;
+      var c = a.rep ? xfCtx(a.rep, idx) : xfCtx(null, 0);
+      if (!xfTruthy(a.rel(c))) return false;
+    }
+    return true;
+  }
+  function xfCount(rep) {
+    if (!xfVisible(rep, 0) || !rep.count) return 0;
+    var v = xfNum(rep.count(xfCtx(null, 0))); return isNaN(v) ? 0 : Math.max(0, Math.min(60, Math.floor(v)));
+  }
+  function xfWalk(nodes, idx, cb) {
+    nodes.forEach(function (n) {
+      if (n.kind === "q") cb(n, idx);
+      else if (n.kind === "group") xfWalk(n.children, idx, cb);
+      else if (n.kind === "repeat") { var c = xfCount(n); for (var i = 1; i <= c; i++) xfWalk(n.children, i, cb); }
+    });
+  }
+  function xfFill(tpl, rep, idx) { return String(tpl || "").replace(/\$\{([^}]+)\}/g, function (m, nm) { return xfStr(xfCtx(rep, idx).get(nm)); }); }
+  function xfLabelOf(n, v) {
+    if (n.type === "select_one") { var o = (n.opts || []).filter(function (x) { return x.n === String(v); })[0]; return o ? o.l : xfStr(v); }
+    if (n.type === "select_multiple") return (v || []).map(function (x) { var o = (n.opts || []).filter(function (y) { return y.n === String(x); })[0]; return o ? o.l : x; }).join(", ");
+    return xfStr(v);
+  }
+  function xfEmpty(n, v) { return v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length); }
+  /* --- rendering --- */
+  function xfQHTML(n, idx) {
+    var key = xfKey(n, idx);
+    var h = '<div class="q' + (n.type === "note" ? " xf-note" : "") + '" data-xn="' + n.id + '" data-xi="' + idx + '">';
+    if (n.type === "note") return h + '<p class="note" data-xnote="1">' + esc(xfFill(n.label, n.rep, idx)) + '</p></div>';
+    h += '<div class="qh"><p class="qt">' + esc(n.label) + (n.req ? '<i class="req" title="Required">*</i>' : "") + '</p></div>';
+    if (n.hint) h += '<p class="note">' + esc(n.hint) + '</p>';
+    if (n.type === "select_one" && n.opts.length <= 8 || n.type === "select_multiple")
+      h += '<div class="chips">' + n.opts.map(function (o) { return '<button type="button" class="chip" data-xk="' + esc(key) + '" data-v="' + esc(o.n) + '" aria-pressed="false">' + esc(o.l) + '</button>'; }).join("") + '</div>';
+    else if (n.type === "select_one") h += '<select class="inp" data-xk="' + esc(key) + '"><option value="">Choose one</option>' + n.opts.map(function (o) { return '<option value="' + esc(o.n) + '">' + esc(o.l) + '</option>'; }).join("") + '</select>';
+    else if (n.type === "integer" || n.type === "decimal") h += '<input class="inp" type="number" inputmode="' + (n.type === "integer" ? "numeric" : "decimal") + '" step="' + (n.type === "integer" ? "1" : "any") + '" data-xk="' + esc(key) + '">';
+    else h += '<input class="inp" type="text" maxlength="200" data-xk="' + esc(key) + '">';
+    if (n.cons) h += '<p class="note xf-err" hidden></p>';
+    return h + '</div>';
+  }
+  function xfChildrenHTML(list, idx, depth) {
+    return list.map(function (n) {
+      if (n.type === "calc" || n.type === "geo") return "";
+      if (n.kind === "q") return xfQHTML(n, idx);
+      if (n.kind === "group") { var inner = xfChildrenHTML(n.children, idx, depth + 1); return inner ? '<div class="xf-grp" data-xn="' + n.id + '" data-xi="' + idx + '">' + (n.label ? '<h3 class="xf-sub">' + esc(xfFill(n.label, n.rep, idx)) + '</h3>' : "") + inner + '</div>' : ""; }
+      return '<div class="xf-rep" data-xn="' + n.id + '" data-xi="0"><div class="xf-rep-body" data-rep="' + esc(n.name) + '"></div></div>';
+    }).join("");
+  }
+  function xfBuild() {
+    var box = $("xform"); if (!box) return;
+    document.body.classList.toggle("xf-mode", !!XF);
+    if (!XF) { box.innerHTML = ""; return; }
+    XF.counts = {};
+    var h = "", loose = [], first = true;
+    function flush(title) { if (!loose.length) return; var inner = xfChildrenHTML(loose, 0, 0); if (inner) h += '<section class="sec"><div class="sec-h"><h2>' + esc(title) + '</h2></div>' + inner + '</section>'; loose = []; }
+    XF.root.children.forEach(function (n) {
+      if (n.kind === "q") { loose.push(n); return; }
+      flush(first ? "Respondent" : "Notes"); first = false;
+      var inner = xfChildrenHTML(n.children, 0, 1);
+      if (inner || n.kind === "repeat") {
+        if (n.kind === "repeat") h += xfChildrenHTML([n], 0, 1);
+        else h += '<section class="sec" data-xn="' + n.id + '" data-xi="0"><div class="sec-h"><h2>' + esc(n.label || n.name) + '</h2></div>' + inner + '</section>';
+      }
+    });
+    flush(first ? "Respondent" : "Notes");
+    h += '<div id="xfStop" class="banner bad" hidden>The respondent did not agree. Thank them politely and end the interview. Record the contact so this person counts in the results.<div style="margin-top:8px"><button type="button" class="btn ghost small" id="xfRecord">Record this contact and close</button></div></div>';
+    box.innerHTML = h;
+    xfSyncControls(); xfRefresh();
+  }
+  function xfRenderRep(rep, want) {
+    var body = document.querySelector('.xf-rep-body[data-rep="' + rep.name + '"]'); if (!body) return;
+    var h = "";
+    for (var i = 1; i <= want; i++) h += '<div class="xf-inst" data-xi="' + i + '"><h3 class="xf-inst-h">' + esc(rep.label || rep.name) + " &middot; " + i + " of " + want + '</h3>' + xfChildrenHTML(rep.children, i, 1) + '</div>';
+    body.innerHTML = h;
+    XF.counts[rep.name] = want;
+    xfSyncControls();
+  }
+  function xfSyncControls() {
+    var box = $("xform"); if (!box) return;
+    box.querySelectorAll("[data-xk]").forEach(function (el) {
+      var k = el.getAttribute("data-xk"), v = xa[k];
+      if (el.classList.contains("chip")) {
+        var val = el.getAttribute("data-v"), on = Array.isArray(v) ? v.indexOf(val) > -1 : v === val;
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+      } else if (el !== document.activeElement) el.value = v == null ? "" : v;
+    });
+  }
+  function xfRefresh() {
+    var box = $("xform"); if (!XF || !box) return;
+    XF.nodes.forEach(function (n) {
+      if (n.kind !== "repeat") return;
+      var want = xfCount(n), have = XF.counts[n.name] || 0;
+      if (want !== have) {
+        Object.keys(xa).forEach(function (k) { if (k.indexOf(n.name + ".") === 0 && parseInt(k.split(".")[1], 10) > want) delete xa[k]; });
+        xfRenderRep(n, want);
+      }
+    });
+    box.querySelectorAll("[data-xn]").forEach(function (el) {
+      var n = XF.nodes[+el.getAttribute("data-xn")], idx = +el.getAttribute("data-xi") || 0;
+      if (!n) return;
+      el.hidden = !xfVisible(n, idx);
+      if (n.type === "note") { var p = el.querySelector("[data-xnote]"); if (p) { var t = xfFill(n.label, n.rep, idx); if (p.textContent !== t) p.textContent = t; } }
+    });
+    var stop = $("xfStop"); if (stop) stop.hidden = xa.consent !== "no";
+  }
+  function xfReady() { return xa.consent === "yes" && !!xa.respondent_type; }
+  function xfNodeOfEl(el) { var q = el.closest("[data-xn]"); return q ? { n: XF.nodes[+q.getAttribute("data-xn")], idx: +q.getAttribute("data-xi") || 0, el: q } : null; }
+  function xfCheckCons(n, idx, v, el) {
+    if (!n.cons || xfEmpty(n, v)) { if (el) { el.classList.remove("invalid"); var e0 = el.querySelector(".xf-err"); if (e0) e0.hidden = true; } return true; }
+    var c = xfCtx(n.rep, idx, n.type === "integer" || n.type === "decimal" ? xfNum(v) : v), ok = xfTruthy(n.cons(c));
+    if (el) { el.classList.toggle("invalid", !ok); var e1 = el.querySelector(".xf-err"); if (e1) { e1.hidden = ok; e1.textContent = n.consMsg || "This value is not allowed."; } }
+    return ok;
+  }
+  function xfClick(e) {
+    var chip = e.target.closest && e.target.closest(".chip[data-xk]"); if (!chip || !XF) return;
+    var k = chip.getAttribute("data-xk"), v = chip.getAttribute("data-v"), info = xfNodeOfEl(chip); if (!info) return;
+    if (info.n.type === "select_multiple") { var arr = (xa[k] || []).slice(), i = arr.indexOf(v); if (i > -1) arr.splice(i, 1); else arr.push(v); if (arr.length) xa[k] = arr; else delete xa[k]; }
+    else if (xa[k] === v) delete xa[k]; else xa[k] = v;
+    xfSyncControls(); refresh();
+  }
+  function xfInput(e) {
+    var t = e.target, k = t.getAttribute && t.getAttribute("data-xk"); if (!k || !XF || t.classList.contains("chip")) return;
+    var info = xfNodeOfEl(t); if (!info) return;
+    var v = t.value; if (v === "") delete xa[k]; else xa[k] = v;
+    if (e.type === "change" || info.n.type === "select_one") xfCheckCons(info.n, info.idx, xa[k], info.el);
+    refresh();
+  }
+  /* --- save --- */
+  function xfCollect(nodes, idx, target, problems, check) {
+    nodes.forEach(function (n) {
+      if (n.kind === "group") { xfCollect(n.children, idx, target, problems, check); return; }
+      if (n.kind === "repeat") {
+        var c = xfCount(n), arr = [];
+        for (var i = 1; i <= c; i++) { var o = {}; xfCollect(n.children, i, o, problems, check); arr.push(o); }
+        if (c) target[n.name] = arr; return;
+      }
+      if (!xfVisible(n, idx)) return;
+      var key = xfKey(n, idx), v = xa[key], tag = n.label + (n.rep ? " (" + n.rep.name + " " + idx + ")" : "");
+      if (n.type === "calc") { var cv = n.calc ? n.calc(xfCtx(n.rep, idx)) : ""; if (typeof cv === "boolean") cv = cv ? 1 : 0; if (cv !== "" && cv != null && !(typeof cv === "number" && isNaN(cv))) target[n.name] = cv; return; }
+      if (n.type === "note" || n.type === "geo") return;
+      if (xfEmpty(n, v)) { if (n.req) problems.push({ key: key, msg: tag }); return; }
+      if (!xfCheckCons(n, idx, v, null)) { problems.push({ key: key, msg: tag + ": " + (n.consMsg || "value not allowed") }); return; }
+      target[n.name] = (n.type === "integer" || n.type === "decimal") ? xfNum(v) : n.type === "select_multiple" ? v.slice() : String(v).trim();
+    });
+  }
+  function xfDevice() { var d = store("ward-survey-device"); if (!d) { d = "d" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); store("ward-survey-device", d); } return d; }
+  async function xfSave() {
+    if (!db || !XF) return;
+    var box = $("missing"), problems = [], data = {};
+    if (!ans.county || !ans.ward || !(ans.interviewer || "").trim()) { box.hidden = false; box.textContent = "Choose the county and ward first."; window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    xfCollect(XF.root.children, 0, data, problems, true);
+    if (problems.length) {
+      box.hidden = false; box.textContent = "Please fix: " + problems.slice(0, 8).map(function (p) { return p.msg.replace(/\.$/, ""); }).join("; ") + (problems.length > 8 ? "; and " + (problems.length - 8) + " more" : "") + ".";
+      document.querySelectorAll("#xform .invalid").forEach(function (n) { n.classList.remove("invalid"); });
+      problems.forEach(function (p) { var el = document.querySelector('#xform [data-xk="' + p.key + '"]'); if (el) { var q = el.closest("[data-xn]"); if (q) q.classList.add("invalid"); } });
+      var f0 = document.querySelector('#xform [data-xk="' + problems[0].key + '"]'); if (f0) f0.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    box.hidden = true;
+    var now = new Date();
+    var doc = { v: 1, kind: "xf", qid: CUSTOM.id, ts: now.getTime(), interviewer: (ans.interviewer || "").trim(), county: ans.county, ward: ans.ward, start: new Date(XF.start).toISOString(), end: now.toISOString(), today: now.toLocaleDateString("en-CA"), deviceid: xfDevice() };
+    var settings = (XF.def.settings || [])[0] || {}; doc.form_id = settings.form_id || ""; doc.form_version = settings.version || "";
+    Object.keys(data).forEach(function (k) { doc[k] = data[k]; });
+    var btn = $("submit"); btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      if (xa.gps_consent === "yes") { await freshPos(); if (lastPos) doc.gps = { lat: lastPos.lat, lng: lastPos.lng, acc: Math.round(lastPos.acc) }; }
+      await addResponse(doc);
+      savedThisSession++; updateStatus();
+      var keep = { interviewer: ans.interviewer, county: ans.county, ward: ans.ward };
+      ans = keep; xa = {}; XF.start = Date.now(); starKey = "";
+      buildForm();
+      toast("Interview saved. Ready for the next respondent.");
+      syncQuestionnaire(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      var code = err && err.code; box.hidden = false;
+      box.textContent = code === "geo" ? err.message : "Could not save. Check the connection and try again.";
+    } finally { btn.textContent = "Save interview"; refresh(); }
+  }
+  async function xfRecordRefusal() {
+    if (!db || !XF) return;
+    if (!ans.county || !ans.ward || !(ans.interviewer || "").trim()) { toast("Choose the county and ward first."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    var b = $("xfRecord"); if (b) b.disabled = true;
+    try {
+      await addResponse({ v: 1, kind: "xf", qid: CUSTOM.id, ts: Date.now(), interviewer: (ans.interviewer || "").trim(), county: ans.county, ward: ans.ward, outcome: "refused" });
+      var keep = { interviewer: ans.interviewer, county: ans.county, ward: ans.ward };
+      ans = keep; xa = {}; XF.start = Date.now(); buildForm();
+      toast("Contact recorded. Ready for the next respondent."); window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) { toast(err && err.code === "geo" ? err.message : "Could not record the contact. Try again."); if (b) b.disabled = false; }
+  }
+  function applyXform(qn, def) {
+    CUSTOM = qn; XF = xfCompile(def); xa = {};
+    var det = BUILTIN[0];
+    SECTIONS = [{ id: det.id, title: det.title, items: det.items.filter(function (i) { return i.id === "interviewer" || i.id === "county" || i.id === "ward"; }) }];
+    indexQ(); starKey = "";
+    buildForm();
+    var b = $("qnBadge"); if (b) { b.hidden = false; b.textContent = "Questionnaire in use: " + qn.title; }
+  }
+  /* --- results --- */
+  function xfFlat(sub, rep) { var out = []; sub.forEach(function (r) { (r[rep.name] || []).forEach(function (o) { out.push(o); }); }); return out; }
+  function xfStats(vals) {
+    vals = vals.filter(function (v) { return typeof v === "number" && !isNaN(v); }).sort(function (a, b) { return a - b; });
+    if (!vals.length) return null;
+    var s = vals.reduce(function (a, b) { return a + b; }, 0);
+    return { n: vals.length, sum: s, mean: s / vals.length, med: vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2, min: vals[0], max: vals[vals.length - 1] };
+  }
+  function xfQCard(n, recs) {
+    var title = n.label.replace(/\$\{[^}]+\}/g, "").replace(/\s+/g, " ").trim();
+    var vals = recs.map(function (o) { return o[n.name]; }).filter(function (v) { return !xfEmpty(n, v); });
+    if (!vals.length) return card(title, "No answers yet", '<p class="empty">No answers yet.</p>');
+    if (n.type === "select_one" || n.type === "select_multiple") {
+      var e = n.type === "select_multiple" ? tallyMulti(vals) : tally(vals);
+      e = e.map(function (x) { return [xfLabelOf({ type: "select_one", opts: n.opts }, x[0]), x[1]]; });
+      return card(title, vals.length + " answer" + (vals.length === 1 ? "" : "s"), bars(e, vals.length, "", 12));
+    }
+    if (n.type === "integer" || n.type === "decimal") {
+      var known = n.name.match(/^(enrol|drop|sn_|ref_)/) ? vals.filter(function (v) { return v >= 0; }) : vals;
+      var s = xfStats(known), unk = vals.length - known.length;
+      if (!s) return card(title, "", '<p class="empty">Only "unknown" answers so far.</p>');
+      return card(title, s.n + " answer" + (s.n === 1 ? "" : "s") + (unk ? ", " + unk + " unknown (-99) left out" : ""), '<div class="tiles"><div class="tile"><b>' + Math.round(s.mean * 10) / 10 + '</b><span>Average</span></div><div class="tile"><b>' + s.med + '</b><span>Middle value</span></div><div class="tile"><b>' + s.min + ' to ' + s.max + '</b><span>Range</span></div><div class="tile"><b>' + s.sum + '</b><span>Total</span></div></div>');
+    }
+    return "";
+  }
+  function xfResultCards(qn, sub) {
+    var xfc = qn.xfc, h = '<div class="card" style="margin-top:12px"><h3>' + esc(qn.title) + '</h3><p class="sub">' + sub.length + ' interview' + (sub.length === 1 ? "" : "s") + (qn.status === "active" ? "" : ", questionnaire closed") + '</p></div>';
+    var kids = []; xfc.nodes.forEach(function (n) { if (n.kind === "repeat" && n.name === "child") kids = xfFlat(sub, n); });
+    if (kids.length) {
+      var P = function (c) { return pct(c, kids.length) + "% (" + c + ")"; };
+      var inS = kids.filter(function (k) { return k.in_school === "yes"; }).length, never = kids.filter(function (k) { return k.ever_attended === "no"; }).length;
+      var drop = kids.filter(function (k) { return k.ever_attended === "yes" && k.in_school === "no"; }).length, sn = kids.filter(function (k) { return k.special_need === 1; }).length;
+      var assessed = kids.filter(function (k) { return k.read_level; }), rd = function (f) { return pct(assessed.filter(f).length, assessed.length) + "%"; };
+      h += '<div class="card" style="margin-top:12px"><h3>Children recorded</h3><p class="sub">' + kids.length + ' children aged 4 to 17 in ' + sub.filter(function (r) { return r.child; }).length + ' households</p><div class="tiles">' +
+        '<div class="tile"><b>' + P(inS) + '</b><span>In school now</span></div><div class="tile"><b>' + P(drop) + '</b><span>Left school</span></div><div class="tile"><b>' + P(never) + '</b><span>Never attended</span></div><div class="tile"><b>' + P(sn) + '</b><span>With a functional difficulty</span></div></div>' +
+        (assessed.length ? '<p class="sub" style="margin-top:10px">Foundational learning, ' + assessed.length + ' children aged 8 to 9 assessed</p><div class="tiles"><div class="tile"><b>' + rd(function (k) { return k.read_level === "paragraph" || k.read_level === "story"; }) + '</b><span>Read a paragraph or story</span></div><div class="tile"><b>' + rd(function (k) { return k.read_level === "none"; }) + '</b><span>Cannot read</span></div><div class="tile"><b>' + rd(function (k) { return k.add_ok === "yes"; }) + '</b><span>Addition correct</span></div><div class="tile"><b>' + rd(function (k) { return k.sub_ok === "yes"; }) + '</b><span>Subtraction correct</span></div></div>' : "") + '</div>';
+    }
+    function walkCards(list, label) {
+      var cards = [];
+      list.forEach(function (n) {
+        if (n.kind === "q" && n.type !== "note" && n.type !== "calc" && n.type !== "geo" && n.type !== "text") { var c = xfQCard(n, n.rep ? xfFlat(sub, n.rep) : sub); if (c) cards.push(c); }
+        else if (n.kind === "group" || n.kind === "repeat") { var inner = walkCards(n.children, n.label || n.name); if (inner) cards.push('<div class="xf-split">' + inner + "</div>"); }
+      });
+      return cards.length ? '<h3 class="xf-res-h">' + esc(label) + '</h3><div class="grid two">' + cards.join("") + "</div>" : "";
+    }
+    xfc.root.children.forEach(function (n) {
+      if (n.kind === "q") return;
+      var body = walkCards(n.children, n.label || n.name); if (body) h += '<div style="margin-top:12px">' + body + "</div>";
+    });
+    var loose = xfc.root.children.filter(function (n) { return n.kind === "q" && n.type !== "note" && n.type !== "text" && n.type !== "calc" && n.type !== "geo"; });
+    if (loose.length) h += '<div class="grid two" style="margin-top:12px">' + loose.map(function (n) { return xfQCard(n, sub); }).join("") + "</div>";
+    return h;
+  }
+  function xfRecBody(r, qn) {
+    var xfc = qn.xfc, h = "";
+    function rowsFor(nodes, obj) {
+      var out = [];
+      nodes.forEach(function (n) {
+        if (n.kind === "q") { if (n.type === "note" || n.type === "geo" || obj[n.name] === undefined) return; out.push('<div><em>' + esc(n.label.replace(/\$\{[^}]+\}/g, "").trim()) + '</em><b>' + esc(xfLabelOf(n, obj[n.name])) + '</b></div>'); }
+        else if (n.kind === "group") out = out.concat(rowsFor(n.children, obj));
+      });
+      return out;
+    }
+    h += '<div class="sw">' + rowsFor(xfc.root.children, r).join("") + '</div>';
+    xfc.nodes.forEach(function (n) {
+      if (n.kind !== "repeat" || !r[n.name]) return;
+      r[n.name].forEach(function (o, i) { h += '<p class="empty" style="margin:10px 0 2px"><b>' + esc(n.label || n.name) + " " + (i + 1) + '</b></p><div class="sw">' + rowsFor(n.children, o).join("") + '</div>'; });
+    });
+    return h;
+  }
+  function numCell(v) { return typeof v === "number" ? String(v) : csvCell(v); }
+  function qCell(n, v) { return (n.type === "integer" || n.type === "decimal" || n.type === "calc") && typeof v === "number" ? String(v) : csvCell(xfLabelOf(n, v)); }
+  function xfTables(qn, sub) {
+    var xfc = qn.xfc, tables = {};
+    var mainCols = [], reps = [];
+    xfc.nodes.forEach(function (n) { if (n.kind === "q" && !n.rep && n.type !== "note" && n.type !== "geo") mainCols.push(n); if (n.kind === "repeat") reps.push(n); });
+    var base = ["interview_id", "date", "time", "interviewer", "county", "constituency", "ward", "app_lat", "app_lng", "app_accuracy_m"];
+    function baseVals(r) { var t = new Date(r.ts); return [r._id, t.toLocaleDateString("en-CA"), t.toLocaleTimeString("en-GB"), r.interviewer, r.county || "", WARD_CONST[r.ward] || "", r.ward, r._lat == null ? "" : r._lat, r._lng == null ? "" : r._lng, r._acc == null ? "" : Math.round(r._acc)]; }
+    var main = [base.concat(["respondent_gps_lat", "respondent_gps_lng"], mainCols.map(function (n) { return n.name; })).map(csvCell).join(",")];
+    sub.forEach(function (r) { main.push(baseVals(r).slice(0, 7).map(csvCell).concat(baseVals(r).slice(7).map(numCell), [r.gps ? r.gps.lat : "", r.gps ? r.gps.lng : ""].map(numCell), mainCols.map(function (n) { return qCell(n, r[n.name]); })).join(",")); });
+    tables.main = main.join("\r\n");
+    reps.forEach(function (rep) {
+      var cols = []; xfc.nodes.forEach(function (n) { if (n.kind === "q" && n.rep === rep && n.type !== "note" && n.type !== "geo") cols.push(n); });
+      var t = [["interview_id", "county", "ward", "entry"].concat(cols.map(function (n) { return n.name; })).map(csvCell).join(",")];
+      sub.forEach(function (r) { (r[rep.name] || []).forEach(function (o, i) { t.push([r._id, r.county || "", r.ward].map(csvCell).concat([String(i + 1)], cols.map(function (n) { return qCell(n, o[n.name]); })).join(",")); }); });
+      tables[rep.name] = t.join("\r\n");
+    });
+    return tables;
+  }
+  async function exportXfTables() {
+    if (!isAdmin) return;
+    var dl = await getDownloader(); if (!dl) { toast("Download is not available in this view."); return; }
+    var any = false;
+    for (var id in QNS) {
+      var qn = QNS[id]; if (!qn.xfc) continue;
+      var sub = rows.filter(function (r) { return r._qid === id && inFilter(r); }); if (!sub.length) continue;
+      any = true;
+      var tb = xfTables(qn, sub), slug = qn.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40), d = new Date().toLocaleDateString("en-CA");
+      try { for (var name in tb) await dl.save({ filename: slug + "-" + (name === "main" ? "interviews" : name) + "-" + d + ".csv", data: "\ufeff" + tb[name] }); }
+      catch (e) { if (!e || e.code !== "declined") toast("Could not save the file."); return; }
+    }
+    if (!any) toast("No interviews for an imported survey yet.");
+  }
+  /* --- admin: add or import an XLSForm --- */
+  async function addXlsForm(def, title) {
+    if (!def || !Array.isArray(def.survey) || !Array.isArray(def.choices)) { toast("This file is not an XLSForm export (it needs survey and choices lists)."); return; }
+    var settings = (def.settings || [])[0] || {};
+    title = title || settings.form_title || "Imported survey";
+    var xfc = xfCompile(def), nq = xfc.nodes.filter(function (n) { return n.kind === "q" && n.type !== "calc" && n.type !== "note"; }).length;
+    var ins = await sb.from("questionnaires").insert({ title: title, status: "draft", questions: [{ id: "__xlsform__", type: "xlsform", text: title, xlsform: def }] });
+    if (ins.error) { toast("Could not add the survey."); return; }
+    toast("Added “" + title + "” as a draft with " + nq + " questions. Tap Make active to use it.");
+    await loadQuestionnaires();
+  }
+  async function addBuiltinXlsForm() {
+    try { var r = await fetch("forms/kenya-retention-fln.xlsform.json"); if (!r.ok) throw new Error("http"); await addXlsForm(await r.json()); }
+    catch (e) { toast("Could not load the built-in survey. Check the connection."); }
+  }
+  function importXlsFormFile(file) {
+    if (!file) return;
+    var rd = new FileReader();
+    rd.onload = function () { var d; try { d = JSON.parse(String(rd.result).replace(/^\ufeff/, "")); } catch (e) { toast("That file is not valid JSON."); return; } addXlsForm(d); };
+    rd.readAsText(file);
   }
 
   /* ---------- state ---------- */
@@ -517,6 +980,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     fillWardSelect();
     fillInterviewerSelect();
     syncControls();
+    xfBuild();
     refresh();
   }
   function indexAreas(d) {
@@ -629,7 +1093,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (ans.ward && list.some(function (x) { return x.label === ans.ward; })) { sel.value = ans.ward; ensureFence(ans.ward); } else if (ans.ward) { ans.ward = ""; }
   }
   function syncControls() {
-    document.querySelectorAll(".q").forEach(function (el) {
+    document.querySelectorAll("#form .q").forEach(function (el) {
       var id = el.getAttribute("data-q"), q = QMAP[id], v = ans[id];
       el.querySelectorAll(".chip").forEach(function (c) {
         var val = c.getAttribute("data-v"), on = false;
@@ -643,6 +1107,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   var starKey = "";
   function refresh() {
+    if (XF) xfRefresh();
     SECTIONS.forEach(function (s) {
       var sec = document.querySelector('[data-sec="' + s.id + '"]');
       if (sec) sec.hidden = s.show ? !s.show(ans) : false;
@@ -669,7 +1134,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     if (msg) stop.innerHTML = esc(msg) + ' Record the contact so this person counts in the results.<div style="margin-top:8px"><button type="button" class="btn ghost small" id="recordStop">Record this contact and close</button></div>';
     var gs = geoState(ans.ward);
     $("geoHint").innerHTML = gs.msg ? '<span class="' + (gs.ok ? "geo-ok" : "geo-bad") + '">' + esc(gs.msg) + "</span>" : "";
-    var ok = qualified(ans) && canWrite && !!db && gs.ok;
+    var ok = (XF ? xfReady() : qualified(ans)) && canWrite && !!db && gs.ok;
     $("submit").disabled = !ok;
     $("submitHint").textContent = !db ? "Saving is unavailable in this view." : !canWrite ? "You have view-only access. Ask the owner to share this page with you as a Contributor." : savedThisSession ? savedThisSession + " saved on this device today." : "";
   }
@@ -864,6 +1329,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
   async function save() {
     if (!db) return;
+    if (XF) return xfSave();
     var missing = QLIST.filter(function (q) { return q.req && visible(q) && !filled(q, ans[q.id]); });
     document.querySelectorAll(".invalid").forEach(function (n) { n.classList.remove("invalid"); });
     var box = $("missing");
@@ -969,7 +1435,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var t = new Date(r.ts);
     var when = t.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     var line, body = "";
-    if (r.outcome) { line = OUTCOME[r.outcome] || r.outcome; body = '<p class="empty" style="padding-bottom:6px">Contact recorded. No questions were asked.</p>'; }
+    if (!r.outcome && xfIsRow(r)) { line = "Completed survey"; body = xfRecBody(r, QNS[r._qid]); }
+    else if (r.outcome) { line = OUTCOME[r.outcome] || r.outcome; body = '<p class="empty" style="padding-bottom:6px">Contact recorded. No questions were asked.</p>'; }
     else {
       var past = pastLabel(r), now = nowLabel(r);
       line = (past || "No 2022 vote named") + " \u2192 " + (now || "no choice recorded");
@@ -987,6 +1454,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       var sub = list.filter(function (r) { return r._qid === id; });
       if (!sub.length) return;
       var qn = QNS[id];
+      if (qn.xfc) { h += xfResultCards(qn, sub); return; }
       h += '<div class="card" style="margin-top:12px"><h3>' + esc(qn.title) + '</h3><p class="sub">' + sub.length + ' interview' + (sub.length === 1 ? "" : "s") + (qn.status === "active" ? "" : ", questionnaire closed") + '</p></div><div class="grid two">' +
         qn.items.map(function (q) {
           if (q.type === "text" || q.type === "area") return card(q.num + ". " + q.text, "Latest answers", quotes(sub, q.id));
@@ -1038,6 +1506,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       $("results").innerHTML = h; return;
     }
 
+    var fullList = list, xl = list.filter(xfIsRow);
+    if (xl.length) {
+      list = list.filter(function (r) { return !xfIsRow(r); });
+      if (!list.length) { h += customCards(xl) + everyoneCard(fullList, cl); $("results").innerHTML = h; return; }
+    }
     var groups = countyGroups(list);
     groups.push(["Kikuyu respondents", function (r) { return r.a5 === "Kikuyu"; }]);
     groups.push(["Other communities", function (r) { return !!r.a5 && r.a5 !== "Kikuyu" && r.a5 !== "Prefer not to say"; }]);
@@ -1108,8 +1581,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     h += '<div class="card" style="margin-top:12px"><h3>Interviewers</h3><p class="sub">Interviews saved per person</p><div class="tbl"><table><thead><tr><th>Interviewer</th><th>Completed</th><th>Not completed</th><th>Wards</th></tr></thead><tbody>' +
       ivRows.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + x.n + '</td><td>' + x.nc + '</td><td>' + Object.keys(x.wards).length + '</td></tr>'; }).join("") + '</tbody></table></div></div>';
 
-    h += customCards(list);
-    h += everyoneCard(list, cl);
+    h += customCards(xl.length ? fullList : list);
+    h += everyoneCard(fullList, cl);
 
     $("results").innerHTML = h;
   }
@@ -1580,6 +2053,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   var editingId = null, qnDraft = null;
   function pristine() {
     var keep = { interviewer: 1, county: 1, ward: 1, consent: 1, s1: 1, s2: 1, s3: 1 };
+    if (Object.keys(xa).length) return false;
     return !Object.keys(ans).some(function (k) { return !keep[k] && ans[k] !== undefined && ans[k] !== ""; });
   }
   function validQuestions(arr) { return Array.isArray(arr) ? arr.filter(function (q) { return q && q.id && q.text; }) : []; }
@@ -1608,7 +2082,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var r = await sb.from("questionnaires").select("id,title,status,questions,created_at,updated_at").order("created_at", { ascending: false });
     if (r.error) { $("qnList").innerHTML = '<p class="empty">Could not load the questionnaires. Reload the page to try again.</p>'; return; }
     QNS = {};
-    r.data.forEach(function (q) { q.questions = validQuestions(q.questions); q.items = compileItems(q); QNS[q.id] = q; });
+    r.data.forEach(function (q) { q.questions = validQuestions(q.questions); var xd = xfOf(q); q.items = xd ? [] : compileItems(q); if (xd) { try { q.xfc = xfCompile(xd); } catch (e) { q.xfc = null; } } QNS[q.id] = q; });
     renderQnList();
   }
   function qnResponses(id) { return rows.filter(function (r) { return r._qid === id; }).length; }
@@ -1618,13 +2092,13 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var h = '<div class="qn-item"><b>Built-in questionnaire</b>' + (anyActive ? "" : '<span class="pill active">In use</span>') + '<div class="meta">The standard questions that come with the app. Enumerators get these whenever no questionnaire below is active.</div></div>';
     h += list.map(function (q) {
       var n = qnResponses(q.id), acts = [];
-      if (q.status === "draft") acts.push('<button class="btn ghost small" data-act="edit" data-id="' + esc(q.id) + '">Edit</button>');
+      if (q.status === "draft" && !q.xfc) acts.push('<button class="btn ghost small" data-act="edit" data-id="' + esc(q.id) + '">Edit</button>');
       if (q.status !== "active") acts.push('<button class="btn ghost small" data-act="activate" data-id="' + esc(q.id) + '">Make active</button>');
       if (q.status === "active") acts.push('<button class="btn ghost small" data-act="close" data-id="' + esc(q.id) + '">Close</button>');
       acts.push('<button class="btn ghost small" data-act="copy" data-id="' + esc(q.id) + '">Duplicate</button>');
       if (q.status !== "active") acts.push('<button class="btn ghost small" data-act="delete" data-id="' + esc(q.id) + '">Delete</button>');
       return '<div class="qn-item"><b>' + esc(q.title) + '</b><span class="pill ' + (q.status === "active" ? "active" : "") + '">' + (q.status === "active" ? "Active" : q.status === "closed" ? "Closed" : "Draft") + '</span>' +
-        '<div class="meta">' + q.questions.length + ' question' + (q.questions.length === 1 ? "" : "s") + ' &middot; ' + n + ' interview' + (n === 1 ? "" : "s") + ' saved</div><div class="acts">' + acts.join("") + '</div></div>';
+        '<div class="meta">' + (q.xfc ? q.xfc.nodes.filter(function (z) { return z.kind === "q" && z.type !== "calc" && z.type !== "note"; }).length + ' questions, with skip logic' : q.questions.length + ' question' + (q.questions.length === 1 ? "" : "s")) + ' &middot; ' + n + ' interview' + (n === 1 ? "" : "s") + ' saved</div><div class="acts">' + acts.join("") + '</div></div>';
     }).join("");
     $("qnList").innerHTML = h;
   }
@@ -1857,6 +2331,10 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   function bindQnUi() {
     $("tab-qn").addEventListener("click", function () { showTab("qn"); });
     $("qnNew").addEventListener("click", function () { openEditor(null); });
+    $("qnXfBuiltin").addEventListener("click", addBuiltinXlsForm);
+    $("qnXfImport").addEventListener("click", function () { $("qnXfFile").click(); });
+    $("qnXfFile").addEventListener("change", function (e) { importXlsFormFile(e.target.files[0]); e.target.value = ""; });
+    $("qnXfCsv").addEventListener("click", exportXfTables);
     $("qnList").addEventListener("click", onQnAction);
     $("qnRows").addEventListener("input", onEditorInput);
     $("qnRows").addEventListener("change", onEditorInput);
@@ -1881,6 +2359,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     await loadAreas(); await loadWardShapes();
     ans.interviewer = store("ward-survey-interviewer") || "";
     buildForm();
+    $("xform").addEventListener("click", function (e) { if (e.target && e.target.id === "xfRecord") xfRecordRefusal(); else xfClick(e); });
+    $("xform").addEventListener("input", xfInput);
+    $("xform").addEventListener("change", xfInput);
     $("form").addEventListener("click", onClick);
     $("form").addEventListener("input", onInput);
     $("form").addEventListener("change", onInput);

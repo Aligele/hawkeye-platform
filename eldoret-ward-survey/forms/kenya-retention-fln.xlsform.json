@@ -1,0 +1,1369 @@
+{
+  "survey": [
+    {
+      "type": "start",
+      "name": "start"
+    },
+    {
+      "type": "end",
+      "name": "end"
+    },
+    {
+      "type": "today",
+      "name": "today"
+    },
+    {
+      "type": "deviceid",
+      "name": "deviceid"
+    },
+    {
+      "type": "text",
+      "name": "enumerator_id",
+      "label": "Enumerator ID",
+      "required": "yes"
+    },
+    {
+      "type": "geopoint",
+      "name": "gps",
+      "label": "GPS location (only if respondent consented)",
+      "hint": "Skip if no consent to record location"
+    },
+    {
+      "type": "select_one respondent_type",
+      "name": "respondent_type",
+      "label": "Who is being interviewed?",
+      "required": "yes"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_consent",
+      "label": "A. Consent and location"
+    },
+    {
+      "type": "note",
+      "name": "consent_text",
+      "label": "Hawkeye Africa is collecting information on children's schooling and learning. Participation is voluntary, answers are confidential and will be reported only in aggregate. You may skip any question or stop at any time. Do you agree to take part?"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "consent",
+      "label": "Respondent consents to the interview",
+      "required": "yes"
+    },
+    {
+      "type": "note",
+      "name": "no_consent_note",
+      "label": "No consent. Stop the interview and thank the respondent.",
+      "relevant": "${consent}='no'"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "gps_consent",
+      "label": "Consent to record GPS location?",
+      "required": "yes",
+      "relevant": "${consent}='yes'"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_loc",
+      "label": "Location",
+      "relevant": "${consent}='yes'"
+    },
+    {
+      "type": "select_one county",
+      "name": "county",
+      "label": "County",
+      "required": "yes",
+      "appearance": "minimal"
+    },
+    {
+      "type": "text",
+      "name": "sub_county",
+      "label": "Sub-county",
+      "required": "yes"
+    },
+    {
+      "type": "text",
+      "name": "ward",
+      "label": "Ward",
+      "required": "yes"
+    },
+    {
+      "type": "select_one setting",
+      "name": "setting",
+      "label": "Setting",
+      "required": "yes"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_cg",
+      "label": "Caregiver / household",
+      "relevant": "${consent}='yes' and ${respondent_type}='caregiver'"
+    },
+    {
+      "type": "select_one relationship",
+      "name": "relationship",
+      "label": "Respondent's relationship to the children",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "hh_size",
+      "label": "Number of people living in the household",
+      "required": "yes",
+      "constraint": ". >= 1 and . <= 40",
+      "constraint_message": "Enter 1-40"
+    },
+    {
+      "type": "select_one sex",
+      "name": "head_sex",
+      "label": "Sex of household head",
+      "required": "yes"
+    },
+    {
+      "type": "select_one head_edu",
+      "name": "head_edu",
+      "label": "Highest education of household head",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "dist_school",
+      "label": "Walking time to nearest school (minutes)",
+      "hint": "Enter 999 if unknown",
+      "required": "yes",
+      "constraint": ". >= 0 and . <= 999",
+      "constraint_message": "0-999"
+    },
+    {
+      "type": "select_one yes_no_dk",
+      "name": "fees_missed",
+      "label": "In the past 12 months, did the household miss paying school fees or costs for any child?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one yes_no_dk",
+      "name": "child_working",
+      "label": "Is any child aged 17 or under in the household doing paid or regular work?",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "child_count",
+      "label": "How many children aged 4-17 live in this household?",
+      "required": "yes",
+      "constraint": ". >= 0 and . <= 15",
+      "constraint_message": "0-15"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "begin_repeat",
+      "name": "child",
+      "label": "Child roster (one entry per child aged 4-17)",
+      "relevant": "${consent}='yes' and ${respondent_type}='caregiver' and ${child_count} > 0",
+      "repeat_count": "${child_count}"
+    },
+    {
+      "type": "calculate",
+      "name": "child_no",
+      "calculation": "position(..)"
+    },
+    {
+      "type": "note",
+      "name": "child_hdr",
+      "label": "Child number ${child_no}"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_prof",
+      "label": "B. Child profile"
+    },
+    {
+      "type": "text",
+      "name": "child_name",
+      "label": "Child's first name or code (not stored in reports)",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "child_age",
+      "label": "Age in completed years",
+      "required": "yes",
+      "constraint": ". >= 4 and . <= 17",
+      "constraint_message": "Age must be 4-17"
+    },
+    {
+      "type": "select_one sex",
+      "name": "child_sex",
+      "label": "Sex",
+      "required": "yes"
+    },
+    {
+      "type": "select_one refugee",
+      "name": "refugee_status",
+      "label": "Refugee or host community status",
+      "required": "yes"
+    },
+    {
+      "type": "note",
+      "name": "wg_intro",
+      "label": "Washington Group Short Set: Do you (does the child) have difficulty...?"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_see",
+      "label": "Difficulty seeing, even if wearing glasses?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_hear",
+      "label": "Difficulty hearing, even if using a hearing aid?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_walk",
+      "label": "Difficulty walking or climbing steps?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_remember",
+      "label": "Difficulty remembering or concentrating?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_self",
+      "label": "Difficulty with self-care such as washing or dressing?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one wg",
+      "name": "wg_comm",
+      "label": "Difficulty communicating, for example understanding or being understood?",
+      "required": "yes"
+    },
+    {
+      "type": "calculate",
+      "name": "special_need",
+      "calculation": "if(${wg_see}='a_lot' or ${wg_see}='cannot' or ${wg_hear}='a_lot' or ${wg_hear}='cannot' or ${wg_walk}='a_lot' or ${wg_walk}='cannot' or ${wg_remember}='a_lot' or ${wg_remember}='cannot' or ${wg_self}='a_lot' or ${wg_self}='cannot' or ${wg_comm}='a_lot' or ${wg_comm}='cannot',1,0)"
+    },
+    {
+      "type": "select_one yes_no_dk",
+      "name": "birth_reg",
+      "label": "Does the child have a birth certificate or birth notification?",
+      "required": "yes"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_ret",
+      "label": "C. Enrolment and retention"
+    },
+    {
+      "type": "select_one yes_no_dk",
+      "name": "ever_attended",
+      "label": "Has the child ever attended school or ECDE?",
+      "required": "yes"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "in_school",
+      "label": "Is the child in school or ECDE now?",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes'"
+    },
+    {
+      "type": "select_one grade",
+      "name": "current_grade",
+      "label": "Current grade",
+      "required": "yes",
+      "relevant": "${in_school}='yes'"
+    },
+    {
+      "type": "select_one school_type",
+      "name": "school_type",
+      "label": "School type",
+      "required": "yes",
+      "relevant": "${in_school}='yes'"
+    },
+    {
+      "type": "select_one grade",
+      "name": "last_grade",
+      "label": "Last grade completed",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes' and ${in_school}='no'"
+    },
+    {
+      "type": "integer",
+      "name": "year_left",
+      "label": "Year the child left school",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes' and ${in_school}='no'",
+      "constraint": ". >= 2005 and . <= 2026",
+      "constraint_message": "2005-2026"
+    },
+    {
+      "type": "integer",
+      "name": "age_left",
+      "label": "Age when the child left",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes' and ${in_school}='no'",
+      "constraint": ". >= 3 and . <= ${child_age}",
+      "constraint_message": "Cannot exceed current age"
+    },
+    {
+      "type": "select_one leave_reason",
+      "name": "leave_reason",
+      "label": "Main reason the child left school",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes' and ${in_school}='no'"
+    },
+    {
+      "type": "text",
+      "name": "leave_reason_other",
+      "label": "Specify other reason",
+      "required": "yes",
+      "relevant": "${leave_reason}='other'"
+    },
+    {
+      "type": "select_one transition",
+      "name": "leave_transition",
+      "label": "Did the child leave at one of these transitions?",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes' and ${in_school}='no'"
+    },
+    {
+      "type": "select_one repeat_times",
+      "name": "repeated",
+      "label": "How many times has the child repeated a grade?",
+      "required": "yes",
+      "relevant": "${ever_attended}='yes'"
+    },
+    {
+      "type": "select_one yes_no_dk",
+      "name": "would_return",
+      "label": "Would the child return to school if support were available?",
+      "required": "yes",
+      "relevant": "${ever_attended}!='dk' and ${in_school}!='yes'"
+    },
+    {
+      "type": "select_multiple support",
+      "name": "return_support",
+      "label": "What support would be needed?",
+      "required": "yes",
+      "relevant": "${would_return}='yes'"
+    },
+    {
+      "type": "select_multiple decider",
+      "name": "decision_maker",
+      "label": "Who decides whether the child goes to school?",
+      "required": "yes"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_learn",
+      "label": "D. Foundational learning (children aged 8-9)",
+      "relevant": "${child_age} >= 8 and ${child_age} <= 9"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "child_assent",
+      "label": "Caregiver agrees and child is willing to do a short reading and maths activity",
+      "required": "yes"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_learn_items",
+      "label": "Activity",
+      "relevant": "${child_assent}='yes'"
+    },
+    {
+      "type": "select_one test_lang",
+      "name": "test_lang",
+      "label": "Language used for the activity",
+      "required": "yes"
+    },
+    {
+      "type": "select_one read_level",
+      "name": "read_level",
+      "label": "Highest reading level reached (Grade 2 story card)",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "comp_correct",
+      "label": "Comprehension questions answered correctly (0-2)",
+      "required": "yes",
+      "relevant": "${read_level}='story' or ${read_level}='paragraph'",
+      "constraint": ". >= 0 and . <= 2",
+      "constraint_message": "0-2"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "add_ok",
+      "label": "Solved the addition item correctly",
+      "required": "yes"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "sub_ok",
+      "label": "Solved the subtraction item correctly",
+      "required": "yes"
+    },
+    {
+      "type": "select_one yes_no",
+      "name": "num_ok",
+      "label": "Recognised numbers up to 99",
+      "required": "yes"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "end_repeat"
+    },
+    {
+      "type": "begin_group",
+      "name": "grp_sh",
+      "label": "F. School head module",
+      "relevant": "${consent}='yes' and ${respondent_type}='school_head'"
+    },
+    {
+      "type": "text",
+      "name": "school_name",
+      "label": "School name",
+      "required": "yes"
+    },
+    {
+      "type": "select_one school_type",
+      "name": "sh_school_type",
+      "label": "School type",
+      "required": "yes"
+    },
+    {
+      "type": "note",
+      "name": "sh_note",
+      "label": "Enter -99 where the school does not know the figure. Never estimate."
+    },
+    {
+      "type": "integer",
+      "name": "sh_rows",
+      "label": "How many year-and-grade rows will you record?",
+      "required": "yes",
+      "constraint": ". >= 1 and . <= 30",
+      "constraint_message": "1-30"
+    },
+    {
+      "type": "begin_repeat",
+      "name": "sh_row",
+      "label": "Enrolment and dropouts by year and grade",
+      "repeat_count": "${sh_rows}"
+    },
+    {
+      "type": "select_one sh_year",
+      "name": "sh_year",
+      "label": "Year",
+      "required": "yes"
+    },
+    {
+      "type": "select_one grade",
+      "name": "sh_grade",
+      "label": "Grade",
+      "required": "yes"
+    },
+    {
+      "type": "integer",
+      "name": "enrol_boys",
+      "label": "Boys enrolled",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "enrol_girls",
+      "label": "Girls enrolled",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "drop_boys",
+      "label": "Boys who dropped out",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "drop_girls",
+      "label": "Girls who dropped out",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "end_repeat"
+    },
+    {
+      "type": "integer",
+      "name": "sn_boys",
+      "label": "Boys with special needs enrolled now",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "sn_girls",
+      "label": "Girls with special needs enrolled now",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "ref_boys",
+      "label": "Refugee boys enrolled now",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "integer",
+      "name": "ref_girls",
+      "label": "Refugee girls enrolled now",
+      "required": "yes",
+      "constraint": ". >= 0 or . = -99",
+      "constraint_message": "Enter 0 or more, or -99 if unknown"
+    },
+    {
+      "type": "end_group"
+    },
+    {
+      "type": "text",
+      "name": "comments",
+      "label": "Enumerator comments"
+    }
+  ],
+  "choices": [
+    {
+      "list_name": "yes_no",
+      "name": "yes",
+      "label": "Yes"
+    },
+    {
+      "list_name": "yes_no",
+      "name": "no",
+      "label": "No"
+    },
+    {
+      "list_name": "yes_no_dk",
+      "name": "yes",
+      "label": "Yes"
+    },
+    {
+      "list_name": "yes_no_dk",
+      "name": "no",
+      "label": "No"
+    },
+    {
+      "list_name": "yes_no_dk",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "yes_no_dk",
+      "name": "refused",
+      "label": "Refused"
+    },
+    {
+      "list_name": "respondent_type",
+      "name": "caregiver",
+      "label": "Caregiver (household interview)"
+    },
+    {
+      "list_name": "respondent_type",
+      "name": "school_head",
+      "label": "School head"
+    },
+    {
+      "list_name": "sex",
+      "name": "female",
+      "label": "Female"
+    },
+    {
+      "list_name": "sex",
+      "name": "male",
+      "label": "Male"
+    },
+    {
+      "list_name": "setting",
+      "name": "urban",
+      "label": "Urban"
+    },
+    {
+      "list_name": "setting",
+      "name": "rural",
+      "label": "Rural"
+    },
+    {
+      "list_name": "setting",
+      "name": "informal",
+      "label": "Informal settlement"
+    },
+    {
+      "list_name": "setting",
+      "name": "camp",
+      "label": "Refugee camp"
+    },
+    {
+      "list_name": "relationship",
+      "name": "parent",
+      "label": "Parent"
+    },
+    {
+      "list_name": "relationship",
+      "name": "grandparent",
+      "label": "Grandparent"
+    },
+    {
+      "list_name": "relationship",
+      "name": "sibling",
+      "label": "Older sibling"
+    },
+    {
+      "list_name": "relationship",
+      "name": "relative",
+      "label": "Other relative"
+    },
+    {
+      "list_name": "relationship",
+      "name": "guardian",
+      "label": "Guardian"
+    },
+    {
+      "list_name": "relationship",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "none",
+      "label": "None"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "some_primary",
+      "label": "Some primary"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "primary",
+      "label": "Completed primary"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "secondary",
+      "label": "Secondary"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "tertiary",
+      "label": "College or university"
+    },
+    {
+      "list_name": "head_edu",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "refugee",
+      "name": "host",
+      "label": "Host community"
+    },
+    {
+      "list_name": "refugee",
+      "name": "refugee",
+      "label": "Refugee"
+    },
+    {
+      "list_name": "refugee",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "wg",
+      "name": "none",
+      "label": "No difficulty"
+    },
+    {
+      "list_name": "wg",
+      "name": "some",
+      "label": "Some difficulty"
+    },
+    {
+      "list_name": "wg",
+      "name": "a_lot",
+      "label": "A lot of difficulty"
+    },
+    {
+      "list_name": "wg",
+      "name": "cannot",
+      "label": "Cannot do at all"
+    },
+    {
+      "list_name": "wg",
+      "name": "refused",
+      "label": "Refused"
+    },
+    {
+      "list_name": "grade",
+      "name": "pp1",
+      "label": "PP1"
+    },
+    {
+      "list_name": "grade",
+      "name": "pp2",
+      "label": "PP2"
+    },
+    {
+      "list_name": "grade",
+      "name": "g1",
+      "label": "Grade 1"
+    },
+    {
+      "list_name": "grade",
+      "name": "g2",
+      "label": "Grade 2"
+    },
+    {
+      "list_name": "grade",
+      "name": "g3",
+      "label": "Grade 3"
+    },
+    {
+      "list_name": "grade",
+      "name": "g4",
+      "label": "Grade 4"
+    },
+    {
+      "list_name": "grade",
+      "name": "g5",
+      "label": "Grade 5"
+    },
+    {
+      "list_name": "grade",
+      "name": "g6",
+      "label": "Grade 6"
+    },
+    {
+      "list_name": "grade",
+      "name": "g7",
+      "label": "Grade 7"
+    },
+    {
+      "list_name": "grade",
+      "name": "g8",
+      "label": "Grade 8"
+    },
+    {
+      "list_name": "grade",
+      "name": "g9",
+      "label": "Grade 9"
+    },
+    {
+      "list_name": "grade",
+      "name": "g10",
+      "label": "Grade 10"
+    },
+    {
+      "list_name": "grade",
+      "name": "g11",
+      "label": "Grade 11"
+    },
+    {
+      "list_name": "grade",
+      "name": "g12",
+      "label": "Grade 12"
+    },
+    {
+      "list_name": "grade",
+      "name": "f1",
+      "label": "Form 1 (8-4-4)"
+    },
+    {
+      "list_name": "grade",
+      "name": "f2",
+      "label": "Form 2 (8-4-4)"
+    },
+    {
+      "list_name": "grade",
+      "name": "f3",
+      "label": "Form 3 (8-4-4)"
+    },
+    {
+      "list_name": "grade",
+      "name": "f4",
+      "label": "Form 4 (8-4-4)"
+    },
+    {
+      "list_name": "grade",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "school_type",
+      "name": "public",
+      "label": "Public"
+    },
+    {
+      "list_name": "school_type",
+      "name": "private",
+      "label": "Private"
+    },
+    {
+      "list_name": "school_type",
+      "name": "nonformal",
+      "label": "Non-formal / community"
+    },
+    {
+      "list_name": "school_type",
+      "name": "madrasa",
+      "label": "Madrasa / Duksi"
+    },
+    {
+      "list_name": "school_type",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "fees",
+      "label": "School fees or costs"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "pregnancy",
+      "label": "Pregnancy"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "marriage",
+      "label": "Early marriage"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "distance",
+      "label": "Distance to school"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "hunger",
+      "label": "Hunger"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "illness",
+      "label": "Illness"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "disability",
+      "label": "Disability"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "insecurity",
+      "label": "Insecurity or conflict"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "labour",
+      "label": "Child labour"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "no_interest",
+      "label": "Lack of interest"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "displacement",
+      "label": "Displacement or relocation"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "leave_reason",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "transition",
+      "name": "g3_4",
+      "label": "Grade 3 to 4"
+    },
+    {
+      "list_name": "transition",
+      "name": "g6_7",
+      "label": "Grade 6 to 7"
+    },
+    {
+      "list_name": "transition",
+      "name": "g9_10",
+      "label": "Grade 9 to 10"
+    },
+    {
+      "list_name": "transition",
+      "name": "f1_4",
+      "label": "Form 1 to 4 (8-4-4)"
+    },
+    {
+      "list_name": "transition",
+      "name": "other",
+      "label": "Other point"
+    },
+    {
+      "list_name": "transition",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "repeat_times",
+      "name": "0",
+      "label": "Never"
+    },
+    {
+      "list_name": "repeat_times",
+      "name": "1",
+      "label": "Once"
+    },
+    {
+      "list_name": "repeat_times",
+      "name": "2",
+      "label": "Twice"
+    },
+    {
+      "list_name": "repeat_times",
+      "name": "3",
+      "label": "Three or more"
+    },
+    {
+      "list_name": "repeat_times",
+      "name": "dk",
+      "label": "Don't know"
+    },
+    {
+      "list_name": "support",
+      "name": "fees",
+      "label": "Fees or bursary"
+    },
+    {
+      "list_name": "support",
+      "name": "uniform",
+      "label": "Uniform and learning materials"
+    },
+    {
+      "list_name": "support",
+      "name": "meals",
+      "label": "School meals"
+    },
+    {
+      "list_name": "support",
+      "name": "childcare",
+      "label": "Childcare for young mothers"
+    },
+    {
+      "list_name": "support",
+      "name": "transport",
+      "label": "Transport or nearer school"
+    },
+    {
+      "list_name": "support",
+      "name": "special",
+      "label": "Special needs support"
+    },
+    {
+      "list_name": "support",
+      "name": "alp",
+      "label": "Catch-up or accelerated learning"
+    },
+    {
+      "list_name": "support",
+      "name": "safety",
+      "label": "Safety and security"
+    },
+    {
+      "list_name": "support",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "decider",
+      "name": "mother",
+      "label": "Mother"
+    },
+    {
+      "list_name": "decider",
+      "name": "father",
+      "label": "Father"
+    },
+    {
+      "list_name": "decider",
+      "name": "both",
+      "label": "Both parents"
+    },
+    {
+      "list_name": "decider",
+      "name": "grand",
+      "label": "Grandparent"
+    },
+    {
+      "list_name": "decider",
+      "name": "child",
+      "label": "The child"
+    },
+    {
+      "list_name": "decider",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "test_lang",
+      "name": "english",
+      "label": "English"
+    },
+    {
+      "list_name": "test_lang",
+      "name": "kiswahili",
+      "label": "Kiswahili"
+    },
+    {
+      "list_name": "test_lang",
+      "name": "mother",
+      "label": "Mother tongue"
+    },
+    {
+      "list_name": "test_lang",
+      "name": "other",
+      "label": "Other"
+    },
+    {
+      "list_name": "read_level",
+      "name": "none",
+      "label": "Cannot read"
+    },
+    {
+      "list_name": "read_level",
+      "name": "letters",
+      "label": "Letters"
+    },
+    {
+      "list_name": "read_level",
+      "name": "words",
+      "label": "Words"
+    },
+    {
+      "list_name": "read_level",
+      "name": "paragraph",
+      "label": "Paragraph"
+    },
+    {
+      "list_name": "read_level",
+      "name": "story",
+      "label": "Full story"
+    },
+    {
+      "list_name": "sh_year",
+      "name": "2022",
+      "label": "2022"
+    },
+    {
+      "list_name": "sh_year",
+      "name": "2023",
+      "label": "2023"
+    },
+    {
+      "list_name": "sh_year",
+      "name": "2024",
+      "label": "2024"
+    },
+    {
+      "list_name": "sh_year",
+      "name": "2025",
+      "label": "2025"
+    },
+    {
+      "list_name": "sh_year",
+      "name": "2026",
+      "label": "2026"
+    },
+    {
+      "list_name": "county",
+      "name": "01",
+      "label": "Mombasa"
+    },
+    {
+      "list_name": "county",
+      "name": "02",
+      "label": "Kwale"
+    },
+    {
+      "list_name": "county",
+      "name": "03",
+      "label": "Kilifi"
+    },
+    {
+      "list_name": "county",
+      "name": "04",
+      "label": "Tana River"
+    },
+    {
+      "list_name": "county",
+      "name": "05",
+      "label": "Lamu"
+    },
+    {
+      "list_name": "county",
+      "name": "06",
+      "label": "Taita Taveta"
+    },
+    {
+      "list_name": "county",
+      "name": "07",
+      "label": "Garissa"
+    },
+    {
+      "list_name": "county",
+      "name": "08",
+      "label": "Wajir"
+    },
+    {
+      "list_name": "county",
+      "name": "09",
+      "label": "Mandera"
+    },
+    {
+      "list_name": "county",
+      "name": "10",
+      "label": "Marsabit"
+    },
+    {
+      "list_name": "county",
+      "name": "11",
+      "label": "Isiolo"
+    },
+    {
+      "list_name": "county",
+      "name": "12",
+      "label": "Meru"
+    },
+    {
+      "list_name": "county",
+      "name": "13",
+      "label": "Tharaka-Nithi"
+    },
+    {
+      "list_name": "county",
+      "name": "14",
+      "label": "Embu"
+    },
+    {
+      "list_name": "county",
+      "name": "15",
+      "label": "Kitui"
+    },
+    {
+      "list_name": "county",
+      "name": "16",
+      "label": "Machakos"
+    },
+    {
+      "list_name": "county",
+      "name": "17",
+      "label": "Makueni"
+    },
+    {
+      "list_name": "county",
+      "name": "18",
+      "label": "Nyandarua"
+    },
+    {
+      "list_name": "county",
+      "name": "19",
+      "label": "Nyeri"
+    },
+    {
+      "list_name": "county",
+      "name": "20",
+      "label": "Kirinyaga"
+    },
+    {
+      "list_name": "county",
+      "name": "21",
+      "label": "Murang'a"
+    },
+    {
+      "list_name": "county",
+      "name": "22",
+      "label": "Kiambu"
+    },
+    {
+      "list_name": "county",
+      "name": "23",
+      "label": "Turkana"
+    },
+    {
+      "list_name": "county",
+      "name": "24",
+      "label": "West Pokot"
+    },
+    {
+      "list_name": "county",
+      "name": "25",
+      "label": "Samburu"
+    },
+    {
+      "list_name": "county",
+      "name": "26",
+      "label": "Trans Nzoia"
+    },
+    {
+      "list_name": "county",
+      "name": "27",
+      "label": "Uasin Gishu"
+    },
+    {
+      "list_name": "county",
+      "name": "28",
+      "label": "Elgeyo Marakwet"
+    },
+    {
+      "list_name": "county",
+      "name": "29",
+      "label": "Nandi"
+    },
+    {
+      "list_name": "county",
+      "name": "30",
+      "label": "Baringo"
+    },
+    {
+      "list_name": "county",
+      "name": "31",
+      "label": "Laikipia"
+    },
+    {
+      "list_name": "county",
+      "name": "32",
+      "label": "Nakuru"
+    },
+    {
+      "list_name": "county",
+      "name": "33",
+      "label": "Narok"
+    },
+    {
+      "list_name": "county",
+      "name": "34",
+      "label": "Kajiado"
+    },
+    {
+      "list_name": "county",
+      "name": "35",
+      "label": "Kericho"
+    },
+    {
+      "list_name": "county",
+      "name": "36",
+      "label": "Bomet"
+    },
+    {
+      "list_name": "county",
+      "name": "37",
+      "label": "Kakamega"
+    },
+    {
+      "list_name": "county",
+      "name": "38",
+      "label": "Vihiga"
+    },
+    {
+      "list_name": "county",
+      "name": "39",
+      "label": "Bungoma"
+    },
+    {
+      "list_name": "county",
+      "name": "40",
+      "label": "Busia"
+    },
+    {
+      "list_name": "county",
+      "name": "41",
+      "label": "Siaya"
+    },
+    {
+      "list_name": "county",
+      "name": "42",
+      "label": "Kisumu"
+    },
+    {
+      "list_name": "county",
+      "name": "43",
+      "label": "Homa Bay"
+    },
+    {
+      "list_name": "county",
+      "name": "44",
+      "label": "Migori"
+    },
+    {
+      "list_name": "county",
+      "name": "45",
+      "label": "Kisii"
+    },
+    {
+      "list_name": "county",
+      "name": "46",
+      "label": "Nyamira"
+    },
+    {
+      "list_name": "county",
+      "name": "47",
+      "label": "Nairobi"
+    }
+  ],
+  "settings": [
+    {
+      "form_title": "Kenya Retention and Foundational Learning Ground Survey",
+      "form_id": "kenya_retention_fln_survey",
+      "version": "2026101401",
+      "default_language": "English (en)"
+    }
+  ]
+}

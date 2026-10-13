@@ -28,6 +28,10 @@ Kenya Elections boundary data on the Humanitarian Data Exchange (IEBC). The othe
 constituency instead. Enumerators see only the ward their phone is inside, and an interview is accepted only from inside
 that ward (the server check uses a circle that encloses the ward). Check the HDX licence terms before wider redistribution.
 
+## Kenya school retention survey (ODK / Kobo form)
+
+`forms/kenya-retention-fln.xlsform.json` is the Hawkeye Africa / Echidna "Kenya Retention and Foundational Learning Ground Survey". In the **Questionnaire** tab choose **Add the Kenya school retention survey**, then **Make active**. Any other XLSForm exported as JSON can be added with **Import ODK / Kobo form**. Skip logic, the per-child roster, the school-head table, number checks and calculated fields all run in the app. County and ward come from the phone-location dropdowns, so those questions in the form are not asked twice. **Download survey tables (CSV)** exports one table for interviews and one per repeat (children, school rows).
+
 ## Questionnaires (migration 004)
 
 Admins get a **Questionnaire** tab. Add a questionnaire (type the questions, or paste many at once), then **Make active**.
