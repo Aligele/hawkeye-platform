@@ -172,6 +172,8 @@ details.person summary small { display: block; color: var(--muted); font-size: 1
 .gate[hidden] { display: none; }
 .gate-in { background: var(--card, #fff); color: var(--ink, #111); border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; }
 .gate-in h2 { margin: 0 0 8px; }
+.gate-in .steps { margin: 8px 0; padding-left: 20px; font-size: 14px; line-height: 1.45; }
+.gate-in .steps li { margin-bottom: 4px; }
 .hdg { background: none; border: 0; } .hdg div { width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 20px; color: #0B5D3B; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 .fl td, .fl th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
@@ -348,7 +350,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     </details>
   </main>
 </div>
-<div class="gate" id="locGate" hidden><div class="gate-in"><h2>Turn on your location</h2><p id="locGateMsg">Waiting for your phone location...</p><p class="empty">The survey admin follows each enumerator's phone location while the app is open, wherever you are. The questionnaire opens as soon as your location is found.</p><button class="btn" id="locRetry" type="button">Try again</button></div></div>
+<div class="gate" id="locGate" hidden><div class="gate-in"><h2>Turn on your location</h2><p id="locGateMsg">Waiting for your phone location...</p><ol id="locSteps" class="steps" hidden></ol><p class="empty">The survey admin follows each enumerator's phone location while the app is open, wherever you are. The questionnaire opens as soon as your location is found.</p><button class="btn" id="locRetry" type="button">Try again</button></div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -763,7 +765,29 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
   var wakeLock = null;
   async function keepAwake() { try { if (navigator.wakeLock && document.visibilityState === "visible") wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {} }
-  function gateMsg(m) { var g = $("locGate"); if (!g) return; if (m == null) { g.hidden = true; return; } $("locGateMsg").textContent = m; g.hidden = false; }
+  function blockedSteps() {
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    return ios ? [
+      "Open the iPhone Settings app, then Privacy & Security, then Location Services. Make sure Location Services is On.",
+      "In that list tap Safari Websites and choose While Using the App.",
+      "Open this survey in Safari itself, not inside WhatsApp or another app. In WhatsApp tap the compass or share icon, then Open in Safari.",
+      "In Safari tap the aA icon in the address bar, then Website Settings, then Location, and choose Allow.",
+      "Best: tap Share, then Add to Home Screen, and open the survey from that icon from now on. Then tap Try again."
+    ] : [
+      "Turn on Location (GPS) in the phone's quick settings.",
+      "Open this survey in Chrome itself, not inside WhatsApp or another app (menu, then Open in Chrome).",
+      "Tap the lock icon next to the address, then Permissions, then Location, and choose Allow.",
+      "Tap Try again, or reload the page."
+    ];
+  }
+  function gateMsg(m, blocked) {
+    var g = $("locGate"); if (!g) return;
+    if (m == null) { g.hidden = true; return; }
+    $("locGateMsg").textContent = m;
+    var st = $("locSteps");
+    if (blocked) { st.innerHTML = blockedSteps().map(function (t) { return "<li>" + esc(t) + "</li>"; }).join(""); st.hidden = false; } else st.hidden = true;
+    g.hidden = false;
+  }
   function startTracking() {
     if (isAdmin) return;
     if (!lastPos) gateMsg("Waiting for your phone location...");
@@ -777,8 +801,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     geoErr = ""; gateMsg(null); updateLocOptions(); refresh(); logLocation();
   }
   function onPosErr(e) {
-    geoErr = e && e.code === 1 ? "Location is blocked. Allow location for this app in your phone settings, then reload." : "Cannot get your location yet. Move outdoors and wait a moment.";
-    if (!lastPos) gateMsg(geoErr);
+    geoErr = e && e.code === 1 ? "Location is blocked on this phone. Follow these steps, then tap Try again." : "Cannot get your location yet. Move outdoors and wait a moment.";
+    if (!lastPos) gateMsg(geoErr, !!(e && e.code === 1));
     refresh();
   }
   async function logLocation() {
