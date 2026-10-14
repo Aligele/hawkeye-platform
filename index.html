@@ -452,7 +452,7 @@ function renderDrawer(){
     secs=[
       ["Dashboard",[T(ICON.home,"Overview","overview")]],
       ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll"),T(ICON.file,"Staff documents","docs",S.docs.filter(function(d){return d.status==="submitted"}).length)]],
-      ["Finance",[T(ICON.cash,"Expenses","expenses"),drItem(ICON.plus,"Add expense","addexp"),drItem(ICON.cash,"Pay salary","paysal"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
+      ["Finance",[T(ICON.cash,"Expenses and salaries","expenses"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
       ["Assignments",[T(ICON.file,"Files from staff","files",nNew)]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isAdmin()?[drItem(ICON.people,"Team members","team")]:[]).concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
