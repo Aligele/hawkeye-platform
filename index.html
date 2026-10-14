@@ -187,6 +187,17 @@ h3{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   .grid2{gap:16px}
 }
 @media (min-width:1600px){.wrap{max-width:1360px}}
+
+a.btn{text-decoration:none}
+.steps{list-style:none;counter-reset:st;margin:20px 0 0;padding:0;display:grid;gap:12px}
+.step{counter-increment:st;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px 56px;position:relative}
+.step::before{content:counter(st);position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:50%;background:var(--teal);color:var(--teal-ink);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:14px}
+.step h3{margin:3px 0 8px}
+.step ul{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--ink2);font-size:14.5px}
+.step ul.stat{list-style:none;padding-left:0}
+.step li b{color:var(--ink)}
+.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 13%,var(--surface))}
+@media (min-width:1024px){.steps{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
 /* polish */
 h3{font-size:15px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink)}
 .fig{border-radius:14px;padding:14px 16px}
@@ -446,7 +457,8 @@ function renderDrawer(){
     ];
   }else{
     secs=[
-      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg")]],
+      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"&&S.stab!=="guide"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg")]],
+      ["Guides",[drItem(ICON.plan,"NG-CDF SQL Maker","stab",' data-v="guide"',S.stab==="guide")]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
   }
@@ -622,7 +634,7 @@ function vApprovals(){
   if(dec.length)h+='<div class="sec"><h3>Recently decided</h3><div class="list">'+dec.map(function(e){return '<button class="item" data-act="viewe" data-id="'+esc(e.id)+'"><span class="grow"><span class="t1" style="display:block">'+esc(e.description||e.category)+'</span><span class="t2" style="display:block">'+esc(memberName(e.submittedBy)+" · "+fdate(e.date))+'</span></span><span><span class="amt" style="display:block">'+fmt(e.amount)+'</span><span class="pill '+(e.status==="approved"?"ok":"bad")+'" style="display:block;margin-top:4px;text-align:center">'+(e.status==="approved"?"Approved":"Rejected")+"</span></span></button>"}).join("")+"</div></div>";
   return h;
 }
-function vStaff(){return S.stab==="asg"?vAssignments():vStaff0()}
+function vStaff(){return S.stab==="asg"?vAssignments():S.stab==="guide"?vGuide():vStaff0()}
 function vStaff0(){
   var mine=S.allExp.slice().sort(byDateDesc);
   var pend=mine.filter(function(e){return e.status==="pending"});
@@ -1345,6 +1357,34 @@ async function downloadBudgetPdf(){
     tbl(doc,yy+36,["Category","Planned (KES)","Spent (KES)","Left (minus = over)"],crow.map(function(r){return [r[0],r[1]>0?nf(r[1]):"-",nf(r[2]),r[1]>0?nf(r[1]-r[2]):"-"]}),null,[1,2,3]);
   }
   await savePdf(doc,"hawkeye-budget-"+y+".pdf");
+}
+
+/* ---------- staff guide: NG-CDF SQL Maker ---------- */
+var GUIDE_URL="https://dev.hawkeyekenya.com/#/tools/ngcdf-sql-maker";
+var GUIDE=[
+ ["Sign in",["Sign in on the dev site with your own account."]],
+ ["Read each PDF with the AI",["Press <b>Copy prompt</b> on the page. Copy it again each time the page changes it.","Use one AI chat per PDF: paste the prompt and attach <b>one</b> PDF.","Check the numbers in the reply against the PDF.","Save the reply as a <b>.json</b> file.","Skip the allocation sheet. We use the NG-CDF Board's figures."]],
+ ["Add your files",["Easiest: drop each JSON <b>together with its PDF</b>, two files at a time. They pair up by themselves.","Or drop everything at once. The page pairs what it can. For any file it can't pair, pick its PDF from the list next to it, or press <b>Add PDF</b> on that row.","<b>PDF ✓</b> next to a JSON means it is paired.","If the page shows <b>Check the pairs the page guessed</b>, look at them, then press <b>These pairs are right</b> or change any that are wrong.","Each PDF can be up to <b>100 MB</b>."]],
+ ["Check and build",["Press <b>Check and build</b>.","If it stops, read the message. It says which file and what to fix.","If it passes, read the <b>warnings</b>. Each must be true of the PDF, not a reading mistake."]],
+ ["Submit",["Press <b>Submit to Hawk Eye</b>.","<b>Keep the page open</b> until it says \"Submitted with its N PDFs\". Big PDFs take a while.","Your package appears in <b>Submitted packages</b> at the bottom as <b>Waiting</b>. You can have at most 3 waiting."]],
+ ["Watch your package",null]
+];
+var GSTATUS=[
+ ["Waiting","Nothing to do.","wait"],
+ ["Waiting for its source PDFs","Press <b>Attach PDFs</b> on your row, then <b>Choose file</b> next to each missing one. Any file name is fine.","wait"],
+ ["Not a PDF","In Attach PDFs, press <b>Remove</b> and choose the real PDF.","bad"],
+ ["Refused","Read the reason, fix it, then build and submit again.","bad"],
+ ["In a PR","Hawk Eye is checking it.","wait"],
+ ["Loaded","Done. It is on the dev site with a <b>Sources</b> link to your PDFs.","ok"]
+];
+function vGuide(){
+  var h='<div class="row-h"><h2>NG-CDF SQL Maker</h2></div><p class="note" style="margin:6px 0 0">How to submit a constituency package. The PDFs now go with your package, so you no longer make throwaway releases and no longer fix file names in the JSON. The page does both.</p>';
+  h+='<div class="acts" style="margin-top:14px"><a class="btn pri" href="'+GUIDE_URL+'" target="_blank" rel="noopener">Open the SQL Maker</a></div><p class="note">Press Ctrl+Shift+R once to load the newest version of the page.</p>';
+  h+='<ol class="steps">'+GUIDE.map(function(g,i){
+    var body=g[1]?"<ul>"+g[1].map(function(x){return "<li>"+x+"</li>"}).join("")+"</ul>":'<ul class="stat">'+GSTATUS.map(function(x){return '<li><span class="pill '+(x[2]==="ok"?"ok":x[2]==="bad"?"bad":"mute")+'">'+esc(x[0])+"</span> "+x[1]+"</li>"}).join("")+"</ul>";
+    return '<li class="step"><h3>'+esc(g[0])+"</h3>"+body+"</li>";
+  }).join("")+"</ol>";
+  return h;
 }
 
 /* ---------- install as app ---------- */
