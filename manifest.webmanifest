@@ -1,0 +1,28 @@
+{
+ "name": "Hawkeye Management System",
+ "short_name": "Hawkeye",
+ "description": "Workers, pay and spending for Hawkeye Africa.",
+ "start_url": "/",
+ "scope": "/",
+ "display": "standalone",
+ "background_color": "#F5F6F3",
+ "theme_color": "#0F6E3D",
+ "icons": [
+  {
+   "src": "/icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "/icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "/icons/maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}
