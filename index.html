@@ -339,7 +339,7 @@ var GENDERS=["Female","Male","Other"];
 var SB_URL="https://enpwvgtgavtfnbhapdcf.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucHd2Z3RnYXZ0Zm5iaGFwZGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTQyODMsImV4cCI6MjEwMDkzMDI4M30.VfngBOGGaPe1iPTc82jD-_C23_b7dfi1vXjDpPcB28s";
 var sb=null;
-var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
+var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
 function isMgr(){return S.role==="admin"||S.role==="manager"}
 function isAdmin(){return S.role==="admin"}
 function roleName(r){return r==="admin"?"Admin":r==="manager"?"Manager":"Staff"}
@@ -405,6 +405,7 @@ async function loadAll(quiet){
     }
     S.expenses=S.allExp.filter(function(e){return e.status==="approved"});
     try{var rs=await sb.from("hk_submissions").select("*").order("created_at",{ascending:false}).limit(1000);S.subs=rs.error?[]:rs.data.map(sFromRow)}catch(e2){S.subs=[]}
+    try{var rd=await sb.from("hk_documents").select("*").order("created_at",{ascending:false}).limit(1000);S.docs=rd.error?[]:rd.data.map(dFromRow)}catch(e3){S.docs=[]}
     S.loaded.w=S.loaded.e=S.loaded.s=true;
     return true;
   }catch(e){
@@ -450,14 +451,14 @@ function renderDrawer(){
     var T=function(ic,label,v,badge){return drItem(ic,label,"tab",' data-v="'+v+'"',S.tab===v,badge)};
     secs=[
       ["Dashboard",[T(ICON.home,"Overview","overview")]],
-      ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll")]],
+      ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll"),T(ICON.file,"Staff documents","docs",S.docs.filter(function(d){return d.status==="submitted"}).length)]],
       ["Finance",[T(ICON.cash,"Expenses","expenses"),drItem(ICON.plus,"Add expense","addexp"),drItem(ICON.cash,"Pay salary","paysal"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
       ["Assignments",[T(ICON.file,"Files from staff","files",nNew)]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isAdmin()?[drItem(ICON.people,"Team members","team")]:[]).concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
   }else{
     secs=[
-      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"&&S.stab!=="guide"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg")]],
+      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"&&S.stab!=="guide"&&S.stab!=="docs"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg"),drItem(ICON.user,"My documents","stab",' data-v="docs"',S.stab==="docs",myDocAlerts())]],
       ["Guides",[drItem(ICON.plan,"NG-CDF SQL Maker","stab",' data-v="guide"',S.stab==="guide")]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
@@ -634,7 +635,7 @@ function vApprovals(){
   if(dec.length)h+='<div class="sec"><h3>Recently decided</h3><div class="list">'+dec.map(function(e){return '<button class="item" data-act="viewe" data-id="'+esc(e.id)+'"><span class="grow"><span class="t1" style="display:block">'+esc(e.description||e.category)+'</span><span class="t2" style="display:block">'+esc(memberName(e.submittedBy)+" · "+fdate(e.date))+'</span></span><span><span class="amt" style="display:block">'+fmt(e.amount)+'</span><span class="pill '+(e.status==="approved"?"ok":"bad")+'" style="display:block;margin-top:4px;text-align:center">'+(e.status==="approved"?"Approved":"Rejected")+"</span></span></button>"}).join("")+"</div></div>";
   return h;
 }
-function vStaff(){return S.stab==="asg"?vAssignments():S.stab==="guide"?vGuide():vStaff0()}
+function vStaff(){return S.stab==="asg"?vAssignments():S.stab==="guide"?vGuide():S.stab==="docs"?vMyDocs():vStaff0()}
 function vStaff0(){
   var mine=S.allExp.slice().sort(byDateDesc);
   var pend=mine.filter(function(e){return e.status==="pending"});
@@ -664,7 +665,7 @@ function vStaff0(){
 function render(){
   var m=document.getElementById("main");
   var f=document.activeElement,keep=f&&f.id==="q"?f.selectionStart:null;
-  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
+  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="docs"?vDocsMgr():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
   renderNav();renderTop();
   if(keep!==null){var q=document.getElementById("q");if(q){q.focus();try{q.setSelectionRange(keep,keep)}catch(e){}}}
 }
@@ -901,7 +902,7 @@ function startPoll(){
 async function signOut(){
   clearInterval(pollT);
   try{await sb.auth.signOut()}catch(e){}
-  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
+  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.docs=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
   showAuth("in");
 }
 
@@ -1387,6 +1388,130 @@ function vGuide(){
   return h;
 }
 
+/* ---------- staff documents (ID, qualifications) ---------- */
+var DBUCKET="hk-documents",DOC_TYPES=["National ID","Passport","Driving licence","Academic certificate","Professional certificate","CV","KRA PIN certificate","Other"],DOC_CORE=["National ID","Academic certificate","Professional certificate","CV"];
+var DMIME={pdf:"application/pdf",jpg:"image/jpeg",png:"image/png",webp:"image/webp"};
+function dFromRow(r){return {id:r.id,owner:r.owner,type:r.doc_type,title:r.title,expires:r.expires_on||"",path:r.file_path,fileName:r.file_name,ftype:r.file_type,size:Number(r.file_size||0),status:r.status,note:r.review_note||"",reviewedBy:r.reviewed_by||"",reviewedAt:r.reviewed_at||"",createdAt:r.created_at}}
+function dDays(d){if(!d.expires)return null;return Math.floor((new Date(d.expires+"T00:00:00")-new Date(today()+"T00:00:00"))/86400000)}
+function dPills(d,mgr){
+  var p=d.status==="verified"?'<span class="pill ok">Verified</span>':d.status==="rejected"?'<span class="pill bad">Send a new copy</span>':'<span class="pill warn">'+(mgr?"To check":"Waiting")+"</span>";
+  var n=dDays(d);
+  if(n!==null&&n<0)p='<span class="pill bad">Expired</span> '+p;else if(n!==null&&n<=30)p='<span class="pill warn">Expires in '+n+(n===1?" day":" days")+"</span> "+p;
+  return p;
+}
+function myDocAlerts(){var me=S.docs.filter(function(d){return d.owner===(S.me&&S.me.id)});return me.filter(function(d){var n=dDays(d);return d.status==="rejected"||(n!==null&&n<=30)}).length}
+function docRow(d,mgr){
+  var meta=[mgr?memberName(d.owner):null,d.type,"Added "+ldate(d.createdAt).split(",")[0]].filter(Boolean).join(" · ");
+  return '<button class="item" data-act="opend" data-id="'+esc(d.id)+'"><span class="ftype">'+esc(d.ftype.toUpperCase())+'</span><span class="grow"><span class="t1" style="display:block">'+esc(d.title)+'</span><span class="t2" style="display:block">'+esc(meta)+"</span></span><span>"+dPills(d,mgr)+"</span></button>";
+}
+function vMyDocs(){
+  var mine=S.docs.filter(function(d){return d.owner===S.me.id});
+  var h='<div class="row-h"><div><h2>My documents</h2><span class="wno">'+esc(S.me.name)+'</span></div><button class="btn pri sm" data-act="docnew">'+ICON.plus+"Upload</button></div>";
+  if(!S.loaded.s)return h+loading();
+  h+='<p class="note" style="margin:8px 0 0">Keep your ID and qualifications here. Only you, your managers and the admin can open them.</p>';
+  var have={};mine.forEach(function(d){have[d.type]=1});
+  var miss=DOC_CORE.filter(function(t){return !have[t]});
+  h+='<div class="sec" style="margin-top:14px">';
+  if(miss.length&&mine.length)h+='<p class="note" style="margin:0">Still to upload: <b>'+miss.map(esc).join(", ")+"</b>.</p>";
+  if(!mine.length)h+='<div class="empty"><b>No documents yet</b><span>Upload a photo or PDF of your ID, certificates and CV. Start with: '+DOC_CORE.map(esc).join(", ")+'.</span><button class="btn pri" data-act="docnew">'+ICON.plus+"Upload a document</button></div>";
+  else h+='<div class="list">'+mine.map(function(d){return docRow(d,false)}).join("")+"</div>";
+  return h+"</div>";
+}
+function filteredDocs(){
+  return S.docs.filter(function(d){return (S.dstat==="All"||d.status===S.dstat)&&(S.dtype==="All"||d.type===S.dtype)&&(S.dmem==="All"||d.owner===S.dmem)});
+}
+function vDocsMgr(){
+  var all=S.docs,list=filteredDocs();
+  var h='<div class="row-h"><h2>Staff documents</h2>'+(all.length?'<button class="btn sm" data-act="csvd">'+ICON.down+"List (CSV)</button>":"")+"</div>";
+  if(!S.loaded.s)return h+loading();
+  var by={};all.forEach(function(d){by[d.owner]=1});
+  var mem=Object.keys(by).map(function(id){return {id:id,name:memberName(id)}}).sort(function(a,b){return a.name.localeCompare(b.name)});
+  var opt=function(arr,cur){return arr.map(function(o){return "<option"+(o===cur?" selected":"")+">"+esc(o)+"</option>"}).join("")};
+  h+='<div class="sec" style="margin-top:14px"><div class="controls"><select class="select" id="dstat" aria-label="Status"><option value="All">All statuses</option><option value="submitted"'+(S.dstat==="submitted"?" selected":"")+'>To check</option><option value="verified"'+(S.dstat==="verified"?" selected":"")+'>Verified</option><option value="rejected"'+(S.dstat==="rejected"?" selected":"")+'>Send a new copy</option></select>'+
+    '<select class="select" id="dtype" aria-label="Type"><option value="All">All types</option>'+opt(DOC_TYPES,S.dtype)+'</select>'+
+    '<select class="select" id="dmem" aria-label="Staff member"><option value="All">All staff</option>'+mem.map(function(m){return '<option value="'+esc(m.id)+'"'+(m.id===S.dmem?" selected":"")+">"+esc(m.name)+"</option>"}).join("")+"</select></div>";
+  if(!all.length)h+='<div class="empty"><b>No documents yet</b><span>IDs, certificates and CVs that staff upload appear here. You can open, verify and download them.</span></div>';
+  else if(!list.length)h+='<div class="empty"><b>No matches</b><span>Change the filters above.</span></div>';
+  else h+='<span class="wno">'+list.length+(list.length===1?" document":" documents")+'</span><div class="list">'+list.map(function(d){return docRow(d,true)}).join("")+"</div>";
+  return h+"</div>";
+}
+function openDocUpload(){
+  var h='<form id="docform" novalidate><fieldset>'+sel("Type of document","dtype",DOC_TYPES,"National ID")+
+    fld("Name of document (optional)","title","text","",{ph:"e.g. BSc Computer Science certificate"})+
+    fld("Expiry date (if it has one)","expires","date","")+
+    '<div class="fld"><label for="f_dfile">File (photo or PDF, up to 10 MB) <span class="req">*</span></label><input class="input" id="f_dfile" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" required></div></fieldset>'+
+    '<p class="note">Photograph the whole page in good light so every word can be read. For an ID, upload the front and the back as two documents.</p>'+
+    '<div class="acts" style="margin-top:18px"><button class="btn pri" type="submit">Upload</button><button class="btn" type="button" data-act="close">Cancel</button></div></form>';
+  openSheet("Upload a document",h);S.sheet={t:"docnew"};
+}
+async function sniffDoc(file){
+  var b=new Uint8Array(await file.slice(0,12).arrayBuffer()),a=function(i,t){for(var k=0;k<t.length;k++)if(b[i+k]!==t[k])return false;return true};
+  if(a(0,[0x25,0x50,0x44,0x46]))return "pdf";
+  if(a(0,[0xFF,0xD8,0xFF]))return "jpg";
+  if(a(0,[0x89,0x50,0x4E,0x47]))return "png";
+  if(a(0,[0x52,0x49,0x46,0x46])&&a(8,[0x57,0x45,0x42,0x50]))return "webp";
+  return "";
+}
+async function saveDoc(f){
+  var o=formData(f),fi=f.querySelector('input[type="file"]'),file=fi&&fi.files&&fi.files[0];
+  if(!file){toast("Choose a photo or PDF.");return}
+  if(file.size<=0){toast("That file is empty.");return}
+  if(file.size>MAXFILE){toast("The file is larger than 10 MB. Take a smaller photo or save it as a smaller PDF.");return}
+  var kind="";try{kind=await sniffDoc(file)}catch(e){}
+  if(!kind){toast("Only PDF, JPG, PNG or WEBP files are accepted.");return}
+  var btn=f.querySelector('[type="submit"]');btn.disabled=true;btn.textContent="Uploading…";
+  var path=S.me.id+"/"+Date.now()+"-"+safeName(file.name.replace(/\.[A-Za-z0-9]+$/,"")+"."+(kind==="jpg"?"jpg":kind));
+  var up=await sb.storage.from(DBUCKET).upload(path,file,{contentType:DMIME[kind],upsert:false});
+  if(up.error){console.error(up.error);toast(/row-level|policy|permission/i.test(up.error.message||"")?"You do not have permission to upload.":"Upload failed. Check your connection and try again.");btn.disabled=false;btn.textContent="Upload";return}
+  var ins=await sb.from("hk_documents").insert({doc_type:o.dtype,title:(o.title||"").trim()||o.dtype,expires_on:nz(o.expires),file_path:path,file_name:file.name.slice(0,255),file_type:kind,file_size:file.size});
+  if(ins.error){await sb.storage.from(DBUCKET).remove([path]);toast(/at most 40/i.test(ins.error.message||"")?"You can keep at most 40 documents. Delete one first.":dbErr(ins.error));btn.disabled=false;btn.textContent="Upload";return}
+  closeSheet();toast("Uploaded.");await loadAll();render();
+}
+function openDoc(id){
+  var d=byId(S.docs,id);if(!d)return;
+  var mgr=isMgr(),mine=d.owner===S.me.id;
+  var rows=[];if(mgr)rows.push(["Staff member",memberName(d.owner)]);
+  rows.push(["Type",d.type],["Added",ldate(d.createdAt)],["File",d.fileName,1],["Size",fsize(d.size)]);
+  if(d.expires)rows.push(["Expires",d.expires]);
+  rows.push(["Status",d.status==="verified"?"Verified":d.status==="rejected"?"Please send a new copy":(mgr?"Waiting for your check":"Sent, waiting for a manager to check")]);
+  if(d.status!=="submitted"){rows.push(["Checked by",d.reviewedBy?memberName(d.reviewedBy):""],["Checked",ldate(d.reviewedAt)]);if(d.note)rows.push(["Note",d.note])}
+  var h=kv(rows)+'<div class="acts"><button class="btn pri" data-act="dld" data-id="'+esc(id)+'">'+ICON.down+"Download</button>"+(d.ftype!=="pdf"?'<button class="btn" data-act="prevd" data-id="'+esc(id)+'">Preview</button>':"")+"</div><div id=\"dprev\"></div>";
+  if(mgr){
+    h+='<form id="docrev" data-id="'+esc(id)+'" novalidate><fieldset><legend>Check this document</legend><div class="fld"><label for="f_dnote">Note (optional, the staff member can read it)</label><textarea class="textarea" id="f_dnote" name="dnote" maxlength="1000" placeholder="e.g. Back of the ID is missing"></textarea></div><div class="acts"><button class="btn pri" type="submit" data-st="verified">Verify</button><button class="btn" type="submit" data-st="rejected">Ask for a new copy</button>'+(d.status!=="submitted"?'<button class="btn" type="button" data-act="redoc" data-id="'+esc(id)+'">Mark as waiting again</button>':"")+"</div></fieldset></form>";
+  }
+  if(mgr||(mine&&d.status!=="verified"))h+='<div class="acts"><button class="btn bad" data-act="deld" data-id="'+esc(id)+'">'+(S.confirm?"Tap again to delete":"Delete")+"</button></div>";
+  openSheet(d.title,h);S.sheet={t:"doc",id:id};
+}
+async function fetchDoc(d){var r=await sb.storage.from(DBUCKET).download(d.path);if(r.error)throw r.error;return r.data}
+async function downloadDoc(id){
+  var d=byId(S.docs,id);if(!d)return;
+  if(!S.dl){toast("Downloading is not available in this view.");return}
+  try{var b=await fetchDoc(d);await S.dl.save({filename:d.fileName,data:b})}
+  catch(e){if(e&&e.code==="declined")return;console.error(e);toast("Could not download the file.")}
+}
+async function previewDoc(id){
+  var d=byId(S.docs,id),box=document.getElementById("dprev");if(!d||!box)return;
+  box.innerHTML='<div class="skel"></div>';
+  try{var b=await fetchDoc(d),u=URL.createObjectURL(new Blob([b],{type:DMIME[d.ftype]}));box.innerHTML='<img alt="'+esc(d.title)+'" style="width:100%;max-height:60vh;object-fit:contain;margin-top:14px;border-radius:10px;border:1px solid var(--line);background:var(--surface2)">';box.firstChild.src=u}
+  catch(e){console.error(e);box.innerHTML='<p class="note">Could not load the preview. Use Download.</p>'}
+}
+async function reviewDoc(id,status,note){
+  var res=await sb.from("hk_documents").update({status:status,review_note:status==="submitted"?null:nz(note)}).eq("id",id);
+  if(res.error){toast(dbErr(res.error));return false}
+  await loadAll();render();return true;
+}
+async function deleteDoc(id){
+  var d=byId(S.docs,id);if(!d)return;
+  var r=await sb.from("hk_documents").delete().eq("id",id);
+  if(r.error){toast(dbErr(r.error));return}
+  await sb.storage.from(DBUCKET).remove([d.path]);
+  closeSheet();toast("Deleted.");await loadAll();render();
+}
+function exportDocs(){
+  exportCsv("hawkeye-staff-documents-"+today()+".csv",["Added","Staff member","Type","Name","File","Expires","Status","Checked by","Checked","Note"],
+    filteredDocs().map(function(d){return [d.createdAt,memberName(d.owner),d.type,d.title,d.fileName,d.expires,d.status,d.reviewedBy?memberName(d.reviewedBy):"",d.reviewedAt,d.note]}));
+}
+
 /* ---------- install as app ---------- */
 var installEv=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();installEv=e;if(S.me)renderDrawer()});
@@ -1418,6 +1543,13 @@ document.addEventListener("click",function(ev){
   if(a==="pdfb"){downloadBudgetPdf();return}
   if(a==="csvb"){exportBudget();return}
   if(a==="stab"){S.stab=t.dataset.v;render();window.scrollTo(0,0);return}
+  if(a==="docnew"){openDocUpload();return}
+  if(a==="opend"){openDoc(id);return}
+  if(a==="dld"){downloadDoc(id);return}
+  if(a==="prevd"){previewDoc(id);return}
+  if(a==="csvd"){exportDocs();return}
+  if(a==="redoc"){reviewDoc(id,"submitted").then(function(ok){if(ok){toast("Marked as waiting.");openDoc(id)}});return}
+  if(a==="deld"){if(!S.confirm){S.confirm=true;t.textContent="Tap again to delete";return}deleteDoc(id);return}
   if(a==="subnew"){openSubmit();return}
   if(a==="opens"){openSub(id);return}
   if(a==="dls"){downloadSub(id);return}
@@ -1471,6 +1603,8 @@ document.addEventListener("submit",async function(ev){
   var f=ev.target,btn=f.querySelector('[type="submit"]');
   if(f.id==="wform")saveWorker(f);
   else if(f.id==="eform")saveExpense(f);
+  else if(f.id==="docform")saveDoc(f);
+  else if(f.id==="docrev"){var rb=ev.submitter||f.querySelector("[data-st]");var st=rb&&rb.dataset.st||"verified";btn.disabled=true;var rid2=f.dataset.id;var okd=await reviewDoc(rid2,st,formData(f).dnote);if(okd){toast(st==="verified"?"Verified.":"Asked for a new copy.");openDoc(rid2)}else btn.disabled=false}
   else if(f.id==="sform")saveSubmission(f);
   else if(f.id==="salform")saveSalary(f);
   else if(f.id==="bform")saveBudget(f);
@@ -1548,6 +1682,9 @@ document.addEventListener("change",function(ev){
       salNote()}
   }
   if(i==="by"){S.byear=ev.target.value;render()}
+  if(i==="dstat"){S.dstat=ev.target.value;render()}
+  if(i==="dtype"&&!document.getElementById("docform")){S.dtype=ev.target.value;render()}
+  if(i==="dmem"){S.dmem=ev.target.value;render()}
   if(i==="sf"){S.sfilter=ev.target.value;render()}
   if(i==="sm"){S.smem=ev.target.value;render()}
 });
