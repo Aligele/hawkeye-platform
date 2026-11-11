@@ -198,6 +198,14 @@ a.btn{text-decoration:none}
 .step li b{color:var(--ink)}
 .pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 13%,var(--surface))}
 @media (min-width:1024px){.steps{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+
+/* badge maker */
+.badge-grid{display:grid;gap:20px}
+.badge-prev{display:flex;gap:14px;justify-content:center;align-items:flex-start}
+.bcv{width:calc(50% - 7px);max-width:220px;height:auto;aspect-ratio:54/86;border-radius:12px;box-shadow:0 4px 18px rgba(18,21,18,.2);background:#fff}
+.badge-side{display:grid;gap:12px;align-content:start}
+.badge-side input[type=range]{width:100%;accent-color:var(--teal)}
+@media (min-width:760px){.badge-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}.bcv{max-width:230px}}
 /* polish */
 h3{font-size:15px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--ink)}
 .fig{border-radius:14px;padding:14px 16px}
@@ -326,6 +334,7 @@ dl.kv{margin:0}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 (function(){
@@ -339,7 +348,7 @@ var GENDERS=["Female","Male","Other"];
 var SB_URL="https://enpwvgtgavtfnbhapdcf.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucHd2Z3RnYXZ0Zm5iaGFwZGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTQyODMsImV4cCI6MjEwMDkzMDI4M30.VfngBOGGaPe1iPTc82jD-_C23_b7dfi1vXjDpPcB28s";
 var sb=null;
-var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
+var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],badge:null,dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
 function isMgr(){return S.role==="admin"||S.role==="manager"}
 function isAdmin(){return S.role==="admin"}
 function roleName(r){return r==="admin"?"Admin":r==="manager"?"Manager":"Staff"}
@@ -372,7 +381,7 @@ var ICON={
 
 /* ---------- data ---------- */
 function nz(v){v=(v==null?"":String(v)).trim();return v===""?null:v}
-function wFromRow(r){return {id:r.id,workerNo:r.worker_no,name:r.name,idNo:r.id_no||"",kraPin:r.kra_pin||"",dob:r.dob||"",gender:r.gender||"",phone:r.phone||"",email:r.email||"",address:r.address||"",role:r.role_title||"",site:r.site||"",type:r.emp_type||"Permanent",status:r.status||"Active",startDate:r.start_date||"",pay:Number(r.pay||0),payMethod:r.pay_method||"",payAccount:r.pay_account||"",ecName:r.ec_name||"",ecRel:r.ec_rel||"",ecPhone:r.ec_phone||"",notes:r.notes||"",createdAt:r.created_at}}
+function wFromRow(r){return {id:r.id,workerNo:r.worker_no,name:r.name,idNo:r.id_no||"",kraPin:r.kra_pin||"",dob:r.dob||"",gender:r.gender||"",phone:r.phone||"",email:r.email||"",address:r.address||"",role:r.role_title||"",site:r.site||"",type:r.emp_type||"Permanent",status:r.status||"Active",startDate:r.start_date||"",pay:Number(r.pay||0),payMethod:r.pay_method||"",payAccount:r.pay_account||"",ecName:r.ec_name||"",ecRel:r.ec_rel||"",ecPhone:r.ec_phone||"",notes:r.notes||"",photoPath:r.photo_path||"",createdAt:r.created_at}}
 function wToRow(o){return {name:o.name,id_no:nz(o.idNo),kra_pin:nz(o.kraPin),dob:nz(o.dob),gender:nz(o.gender),phone:nz(o.phone),email:nz(o.email),address:nz(o.address),role_title:nz(o.role),site:nz(o.site),emp_type:o.type||"Permanent",status:o.status||"Active",start_date:nz(o.startDate),pay:Number(o.pay||0),pay_method:nz(o.payMethod),pay_account:nz(o.payAccount),ec_name:nz(o.ecName),ec_rel:nz(o.ecRel),ec_phone:nz(o.ecPhone),notes:nz(o.notes)}}
 function mFromRow(r){return {id:r.user_id,name:r.full_name,email:r.email||"",role:r.role,active:r.active}}
 function nameOf(id){if(!id)return "";var w=byId(S.workers,id)||byId(S.roster,id);return w?w.name:""}
@@ -451,7 +460,7 @@ function renderDrawer(){
     var T=function(ic,label,v,badge){return drItem(ic,label,"tab",' data-v="'+v+'"',S.tab===v,badge)};
     secs=[
       ["Dashboard",[T(ICON.home,"Overview","overview")]],
-      ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll"),T(ICON.file,"Staff documents","docs",S.docs.filter(function(d){return d.status==="submitted"}).length)]],
+      ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll"),T(ICON.user,"Staff badges","badges"),T(ICON.file,"Staff documents","docs",S.docs.filter(function(d){return d.status==="submitted"}).length)]],
       ["Finance",[T(ICON.cash,"Expenses and salaries","expenses"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
       ["Assignments",[T(ICON.file,"Files from staff","files",nNew)]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isAdmin()?[drItem(ICON.people,"Team members","team")]:[]).concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
@@ -665,7 +674,7 @@ function vStaff0(){
 function render(){
   var m=document.getElementById("main");
   var f=document.activeElement,keep=f&&f.id==="q"?f.selectionStart:null;
-  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="docs"?vDocsMgr():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
+  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="badges"?vBadges():S.tab==="docs"?vDocsMgr():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
   renderNav();renderTop();
   if(keep!==null){var q=document.getElementById("q");if(q){q.focus();try{q.setSelectionRange(keep,keep)}catch(e){}}}
 }
@@ -677,7 +686,7 @@ function openSheet(title,body){
   document.body.style.overflow="hidden";
   var s=document.querySelector(".sheet");if(s)s.scrollTop=0;
 }
-function closeSheet(){document.getElementById("layer").innerHTML="";document.body.style.overflow="";S.sheet=null;S.confirm=false}
+function closeSheet(){S.badge=null;document.getElementById("layer").innerHTML="";document.body.style.overflow="";S.sheet=null;S.confirm=false}
 
 function opts(arr,val){return arr.map(function(o){return "<option"+(o===val?" selected":"")+">"+esc(o)+"</option>"}).join("")}
 function fld(label,name,type,val,extra){
@@ -727,7 +736,7 @@ function openWorker(id){
   if(!ex.length)h+='<div class="empty">No expenses linked to this worker.</div>';
   else h+='<div class="sum"><strong>'+fmt(sum(ex,function(e){return e.amount}))+"</strong><span>"+ex.length+" entries</span></div>"+'<div class="list">'+ex.slice(0,8).map(expRow).join("")+"</div>"+(ex.length>8?'<span class="wno">Showing the latest 8 of '+ex.length+"</span>":"");
   h+="</div>";
-  if(isMgr())h+='<div class="acts"><button class="btn pri" data-act="editw" data-id="'+esc(id)+'">Edit details</button>'+(isAdmin()?'<button class="btn bad" data-act="delw" data-id="'+esc(id)+'">'+(S.confirm?"Tap again to delete":"Delete worker")+"</button>":"")+"</div>";
+  if(isMgr())h+='<div class="acts"><button class="btn pri" data-act="editw" data-id="'+esc(id)+'">Edit details</button><button class="btn" data-act="badge" data-id="'+esc(id)+'">'+(w.photoPath?"Staff badge":"Create badge")+"</button>"+(isAdmin()?'<button class="btn bad" data-act="delw" data-id="'+esc(id)+'">'+(S.confirm?"Tap again to delete":"Delete worker")+"</button>":"")+"</div>";
   openSheet("Worker profile",h);
   S.sheet={t:"w",id:id};
 }
@@ -909,7 +918,7 @@ async function signOut(){
 /* ---------- download (browser) ---------- */
 S.dl={save:async function(r){
   var ext=(r.filename.split(".").pop()||"").toLowerCase();
-  var type=ext==="pdf"?"application/pdf":ext==="csv"?"text/csv;charset=utf-8":ext==="json"?"application/json":"application/octet-stream";
+  var type=ext==="pdf"?"application/pdf":ext==="png"?"image/png":ext==="csv"?"text/csv;charset=utf-8":ext==="json"?"application/json":"application/octet-stream";
   var blob=new Blob([r.data],{type:type});
   var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=r.filename;document.body.appendChild(a);a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},4000);
@@ -1512,6 +1521,181 @@ function exportDocs(){
     filteredDocs().map(function(d){return [d.createdAt,memberName(d.owner),d.type,d.title,d.fileName,d.expires,d.status,d.reviewedBy?memberName(d.reviewedBy):"",d.reviewedAt,d.note]}));
 }
 
+/* ---------- staff badges ---------- */
+var BW=540,BH=860,PHW=600,PHH=800;
+function vBadges(){
+  var list=S.workers.filter(function(w){return w.status!=="Exited"}).sort(function(a,b){return (a.name||"").localeCompare(b.name||"")});
+  var q=(S.q||"").toLowerCase();if(q)list=list.filter(function(w){return (w.name+" "+w.workerNo+" "+w.role+" "+w.site).toLowerCase().indexOf(q)>=0});
+  var h='<div class="row-h"><h2>Staff badges</h2></div><p class="note" style="margin:6px 0 0">Choose a worker and upload a photo. The badge fills in the name, job title, worker number and logo for you.</p>';
+  if(!S.loaded.w)return h+loading();
+  h+='<div class="controls" style="margin-top:12px"><input class="input search" id="q" type="search" placeholder="Search by name, number or job" value="'+esc(S.q||"")+'" aria-label="Search workers"></div>';
+  if(!S.workers.length)return h+'<div class="empty"><b>No workers yet</b><span>Enroll a worker first, then make their badge here.</span></div>';
+  h+='<div class="sec" style="margin-top:14px"><div class="list">'+list.map(function(w){
+    return '<button class="item" data-act="badge" data-id="'+esc(w.id)+'"><span class="av">'+esc(initials(w.name))+'</span><span class="grow"><span class="t1" style="display:block">'+esc(w.name)+'</span><span class="t2" style="display:block">'+esc([w.workerNo,w.role].filter(Boolean).join(" · "))+"</span></span>"+(w.photoPath?'<span class="pill ok">Photo added</span>':'<span class="pill mute">No photo</span>')+"</button>";
+  }).join("")+"</div></div>";
+  return h;
+}
+function loadImg(src){return new Promise(function(ok,no){var i=new Image();i.onload=function(){ok(i)};i.onerror=no;i.src=src})}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function bfont(px,wt){var f=getComputedStyle(document.documentElement).getPropertyValue("--f-display").trim()||"sans-serif";return wt+" "+px+"px "+f}
+function fitLines(c,text,maxW,start,min,wt){
+  for(var px=start;px>=min;px-=2){c.font=bfont(px,wt);if(c.measureText(text).width<=maxW)return {px:px,lines:[text]}}
+  c.font=bfont(min,wt);var words=text.split(/\s+/),a="",b=[];
+  words.forEach(function(w){if(b.length||c.measureText((a+" "+w).trim()).width>maxW){b.push(w)}else a=(a+" "+w).trim()});
+  return {px:min,lines:b.length?[a,b.join(" ")]:[a]};
+}
+function drawPhoto(c,x,y,w,h,B){
+  c.save();rr(c,x,y,w,h,26);c.clip();
+  if(B.img){
+    var iw=B.img.naturalWidth||B.img.width,ih=B.img.naturalHeight||B.img.height,sc=Math.max(w/iw,h/ih)*B.zoom,dw=iw*sc,dh=ih*sc;
+    c.drawImage(B.img,x-(dw-w)*B.px,y-(dh-h)*B.py,dw,dh);
+  }else{
+    c.fillStyle="#DDE5DF";c.fillRect(x,y,w,h);c.fillStyle="#0F6E3D";c.font=bfont(120,700);c.textAlign="center";c.textBaseline="middle";c.fillText(initials(B.w.name),x+w/2,y+h/2);
+  }
+  c.restore();
+}
+function drawFront(B){
+  var cv=document.createElement("canvas");cv.width=BW;cv.height=BH;var c=cv.getContext("2d"),w=B.w;
+  c.fillStyle="#FFFFFF";c.fillRect(0,0,BW,BH);
+  var g=c.createLinearGradient(0,0,BW,260);g.addColorStop(0,"#0A3D24");g.addColorStop(1,"#0F6E3D");c.fillStyle=g;c.fillRect(0,0,BW,270);
+  if(B.logo){c.fillStyle="#fff";rr(c,36,34,112,112,16);c.fill();c.drawImage(B.logo,42,40,100,100)}
+  c.textAlign="left";c.textBaseline="alphabetic";c.fillStyle="#fff";c.font=bfont(44,700);c.fillText("Hawkeye",172,84);
+  c.font=bfont(26,500);c.fillStyle="rgba(255,255,255,.82)";c.fillText("Africa",172,120);
+  // photo
+  var pw=300,ph=400,px=(BW-pw)/2,py=164;
+  c.save();c.shadowColor="rgba(0,0,0,.28)";c.shadowBlur=24;c.shadowOffsetY=8;c.fillStyle="#fff";rr(c,px-8,py-8,pw+16,ph+16,32);c.fill();c.restore();
+  drawPhoto(c,px,py,pw,ph,B);
+  // text
+  c.textAlign="center";c.textBaseline="alphabetic";
+  var t=fitLines(c,w.name||"",BW-70,46,30,700);c.fillStyle="#121512";c.font=bfont(t.px,700);
+  var y=612;t.lines.forEach(function(l,i){c.fillText(l,BW/2,y+i*(t.px+6))});y+=(t.lines.length-1)*(t.px+6);
+  c.fillStyle="#0F6E3D";var r=fitLines(c,w.role||"Staff",BW-70,30,22,600);c.font=bfont(r.px,600);c.fillText(r.lines[0],BW/2,y+52);
+  if(w.site){c.fillStyle="#5A615A";c.font=bfont(24,500);c.fillText(fitLines(c,w.site,BW-70,24,18,500).lines[0],BW/2,y+88)}
+  if(w.workerNo){c.fillStyle="#121512";c.font=bfont(32,700);c.fillText(w.workerNo,BW/2,y+140)}
+  // stripe
+  c.fillStyle="#0F6E3D";c.fillRect(0,BH-44,BW*0.58,44);c.fillStyle="#C41E2A";c.fillRect(BW*0.58,BH-44,BW*0.42,44);
+  c.fillStyle="#fff";c.font=bfont(22,700);c.textAlign="left";c.fillText("STAFF",30,BH-14);
+  return cv;
+}
+function drawBack(B){
+  var cv=document.createElement("canvas");cv.width=BW;cv.height=BH;var c=cv.getContext("2d"),w=B.w;
+  c.fillStyle="#FFFFFF";c.fillRect(0,0,BW,BH);
+  c.fillStyle="#0A3D24";c.fillRect(0,0,BW,90);
+  if(B.logo){c.fillStyle="#fff";rr(c,30,18,54,54,10);c.fill();c.drawImage(B.logo,33,21,48,48)}
+  c.fillStyle="#fff";c.textAlign="left";c.textBaseline="alphabetic";c.font=bfont(32,700);c.fillText("Hawkeye Africa",100,56);
+  // QR
+  var qs=300,qx=(BW-qs)/2,qy=140;
+  var txt="HAWKEYE|"+(w.workerNo||String(w.id).slice(0,8));
+  if(window.qrcode){
+    try{var q=window.qrcode(0,"M");q.addData(txt);q.make();var n=q.getModuleCount(),m=qs/(n+8);
+      c.fillStyle="#fff";c.fillRect(qx,qy,qs,qs);c.fillStyle="#121512";
+      for(var r=0;r<n;r++)for(var k=0;k<n;k++)if(q.isDark(r,k))c.fillRect(qx+(k+4)*m,qy+(r+4)*m,Math.ceil(m),Math.ceil(m));
+      c.strokeStyle="#D8DCD5";c.lineWidth=2;c.strokeRect(qx,qy,qs,qs)}catch(e){}
+  }
+  c.textAlign="center";c.fillStyle="#121512";c.font=bfont(38,700);c.fillText(w.workerNo||"",BW/2,qy+qs+60);
+  c.font=bfont(26,600);c.fillStyle="#0F6E3D";c.fillText(w.name||"",BW/2,qy+qs+104);
+  c.fillStyle="#5A615A";c.font=bfont(22,500);
+  var y=qy+qs+160;
+  if(B.issued){c.fillText("Issued "+fdate(B.issued),BW/2,y);y+=34}
+  if(B.valid){c.fillText("Valid until "+fdate(B.valid),BW/2,y);y+=34}
+  c.font=bfont(21,500);c.fillStyle="#464D45";
+  ["This badge belongs to Hawkeye Africa.","If found, please return it to","Hawkeye Africa."].forEach(function(l,i){c.fillText(l,BW/2,BH-150+i*30)});
+  c.fillStyle="#0F6E3D";c.fillRect(0,BH-44,BW*0.58,44);c.fillStyle="#C41E2A";c.fillRect(BW*0.58,BH-44,BW*0.42,44);
+  return cv;
+}
+function badgeRender(){
+  var B=S.badge;if(!B)return;
+  [["bfront",drawFront],["bback",drawBack]].forEach(function(p){
+    var t=document.getElementById(p[0]);if(!t)return;var src=p[1](B);t.width=BW;t.height=BH;t.getContext("2d").drawImage(src,0,0);
+  });
+  var sv=document.getElementById("bsave");if(sv)sv.hidden=!B.dirty;
+  var ctl=document.getElementById("bctl");if(ctl)ctl.hidden=!B.img;
+  [].slice.call(document.querySelectorAll("[data-needphoto]")).forEach(function(b){b.disabled=!B.img});
+}
+async function openBadge(id){
+  var w=byId(S.workers,id);if(!w)return;
+  var logoEl=document.querySelector(".brand .logo"),logo=null;
+  try{logo=logoEl?await loadImg(logoEl.src):null}catch(e){}
+  S.badge={w:w,img:null,zoom:1,px:.5,py:.4,dirty:false,issued:today(),valid:"",logo:logo};
+  var h='<div class="badge-grid"><div class="badge-prev"><canvas id="bfront" class="bcv" aria-label="Badge front"></canvas><canvas id="bback" class="bcv" aria-label="Badge back"></canvas></div>'+
+    '<div class="badge-side"><div class="fld"><label for="bd_file">'+(w.photoPath?"Change photo":"Upload a photo")+'</label><input class="input" id="bd_file" type="file" accept="image/*"></div>'+
+    '<p class="note" style="margin:0">Use a clear photo of the face and shoulders against a plain background.</p>'+
+    '<div id="bctl" hidden><div class="fld"><label for="bd_zoom">Zoom</label><input id="bd_zoom" type="range" min="1" max="3" step="0.02" value="1"></div>'+
+    '<div class="fld"><label for="bd_x">Move left or right</label><input id="bd_x" type="range" min="0" max="1" step="0.01" value="0.5"></div>'+
+    '<div class="fld"><label for="bd_y">Move up or down</label><input id="bd_y" type="range" min="0" max="1" step="0.01" value="0.4"></div></div>'+
+    '<div class="fld"><label for="bd_valid">Valid until (optional)</label><input class="input" id="bd_valid" type="date"></div>'+
+    '<div class="acts"><button class="btn pri" id="bsave" data-act="bsave" hidden>Save photo</button></div>'+
+    '<div class="acts"><button class="btn pri" data-act="bpdf" data-needphoto disabled>'+ICON.down+'Badge PDF</button><button class="btn" data-act="bsheet" data-needphoto disabled>'+ICON.down+'A4 print sheet</button><button class="btn" data-act="bpng" data-needphoto disabled>'+ICON.down+'Front picture</button></div>'+
+    '<p class="note" style="margin:0">The PDF is card size (54 × 86 mm), front then back. The A4 sheet puts both sides side by side to print and cut out.</p></div></div>';
+  openSheet("Badge · "+w.name,h);S.sheet={t:"badge",id:id};
+  badgeRender();
+  if(w.photoPath){
+    try{var r=await sb.storage.from(PBUCKET).download(w.photoPath);if(r.error)throw r.error;
+      var im=await loadImg(URL.createObjectURL(r.data));
+      if(S.badge&&S.badge.w.id===id){S.badge.img=im;badgeRender()}}
+    catch(e){console.error(e);toast("Could not load the saved photo.")}
+  }
+}
+var PBUCKET="hk-photos";
+async function badgeFile(file){
+  var B=S.badge;if(!B||!file)return;
+  if(!/^image\//.test(file.type)){toast("Choose a photo (JPG or PNG).");return}
+  if(file.size>25*1024*1024){toast("That photo is too large. Choose a smaller one.");return}
+  try{B.img=await loadImg(URL.createObjectURL(file))}catch(e){toast("Could not read that photo. Try a JPG or PNG.");return}
+  B.zoom=1;B.px=.5;B.py=.4;B.dirty=true;
+  ["bd_zoom","bd_x","bd_y"].forEach(function(i,k){var el=document.getElementById(i);if(el)el.value=[1,.5,.4][k]});
+  badgeRender();
+}
+function badgeSliders(id,v){
+  var B=S.badge;if(!B)return;
+  if(id==="bd_zoom")B.zoom=Number(v);else if(id==="bd_x")B.px=Number(v);else if(id==="bd_y")B.py=Number(v);else if(id==="bd_valid")B.valid=v;
+  if(id!=="bd_valid")B.dirty=true;badgeRender();
+}
+async function badgeSave(){
+  var B=S.badge;if(!B||!B.img)return;
+  var btn=document.getElementById("bsave");btn.disabled=true;btn.textContent="Saving…";
+  var cv=document.createElement("canvas");cv.width=PHW;cv.height=PHH;var c=cv.getContext("2d");
+  var iw=B.img.naturalWidth||B.img.width,ih=B.img.naturalHeight||B.img.height,sc=Math.max(PHW/iw,PHH/ih)*B.zoom,dw=iw*sc,dh=ih*sc;
+  c.fillStyle="#fff";c.fillRect(0,0,PHW,PHH);c.drawImage(B.img,-(dw-PHW)*B.px,-(dh-PHH)*B.py,dw,dh);
+  var blob=await new Promise(function(ok){cv.toBlob(ok,"image/jpeg",0.86)});
+  var path=B.w.id+"/"+Date.now()+".jpg",old=B.w.photoPath;
+  var up=await sb.storage.from(PBUCKET).upload(path,blob,{contentType:"image/jpeg",upsert:false});
+  if(up.error){console.error(up.error);toast("Could not save the photo. Check your connection and try again.");btn.disabled=false;btn.textContent="Save photo";return}
+  var u=await sb.from("hk_workers").update({photo_path:path}).eq("id",B.w.id);
+  if(u.error){await sb.storage.from(PBUCKET).remove([path]);toast(dbErr(u.error));btn.disabled=false;btn.textContent="Save photo";return}
+  if(old)await sb.storage.from(PBUCKET).remove([old]);
+  toast("Photo saved.");
+  var keep=B;await loadAll();var w2=byId(S.workers,B.w.id);if(w2)keep.w=w2;
+  keep.dirty=false;btn.disabled=false;btn.textContent="Save photo";
+  if(S.tab==="badges"&&!isStaffView())render();
+  badgeRender();
+}
+function isStaffView(){return !isMgr()}
+function badgeName(){return (S.badge.w.workerNo||"badge")+"-"+(S.badge.w.name||"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").toLowerCase()}
+async function badgePdf(kind){
+  var B=S.badge;if(!B||!B.img)return;if(!guard())return;
+  var J=window.jspdf.jsPDF,f=drawFront(B),b=drawBack(B),F=f.toDataURL("image/jpeg",0.93),K=b.toDataURL("image/jpeg",0.93),doc;
+  if(kind==="sheet"){
+    doc=new J({orientation:"landscape",unit:"mm",format:"a4"});
+    var x0=(297-(54*2+12))/2,y0=(210-86)/2;
+    doc.addImage(F,"JPEG",x0,y0,54,86);doc.addImage(K,"JPEG",x0+66,y0,54,86);
+    doc.setDrawColor(150);doc.setLineWidth(0.15);doc.rect(x0,y0,54,86);doc.rect(x0+66,y0,54,86);
+    doc.setFontSize(8);doc.setTextColor(120);doc.text("Print at 100% (no scaling). Cut along the thin lines. Card size 54 x 86 mm.",148.5,y0+86+10,{align:"center"});
+  }else{
+    doc=new J({orientation:"portrait",unit:"mm",format:[54,86]});
+    doc.addImage(F,"JPEG",0,0,54,86);doc.addPage([54,86],"portrait");doc.addImage(K,"JPEG",0,0,54,86);
+  }
+  if(!S.dl){toast("Downloading is not available in this view.");return}
+  try{await S.dl.save({filename:badgeName()+(kind==="sheet"?"-print-sheet":"")+".pdf",data:doc.output("arraybuffer")})}
+  catch(e){if(e&&e.code!=="declined")toast("Could not save the PDF.")}
+}
+async function badgePng(){
+  var B=S.badge;if(!B||!B.img)return;
+  var blob=await new Promise(function(ok){drawFront(B).toBlob(ok,"image/png")});
+  if(!S.dl){toast("Downloading is not available in this view.");return}
+  try{await S.dl.save({filename:badgeName()+"-front.png",data:blob})}catch(e){if(e&&e.code!=="declined")toast("Could not save the picture.")}
+}
+
 /* ---------- install as app ---------- */
 var installEv=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();installEv=e;if(S.me)renderDrawer()});
@@ -1543,6 +1727,11 @@ document.addEventListener("click",function(ev){
   if(a==="pdfb"){downloadBudgetPdf();return}
   if(a==="csvb"){exportBudget();return}
   if(a==="stab"){S.stab=t.dataset.v;render();window.scrollTo(0,0);return}
+  if(a==="badge"){openBadge(id);return}
+  if(a==="bsave"){badgeSave();return}
+  if(a==="bpdf"){badgePdf();return}
+  if(a==="bsheet"){badgePdf("sheet");return}
+  if(a==="bpng"){badgePng();return}
   if(a==="docnew"){openDocUpload();return}
   if(a==="opend"){openDoc(id);return}
   if(a==="dld"){downloadDoc(id);return}
@@ -1668,7 +1857,7 @@ document.addEventListener("submit",async function(ev){
     showCreds(mm.name,mm.email,pw,"Password reset");
   }
 });
-document.addEventListener("input",function(ev){if(ev.target.id==="q"){S.q=ev.target.value;render()}var bf=ev.target.closest&&ev.target.closest("#bform");if(bf)bSum(bf)});
+document.addEventListener("input",function(ev){if(ev.target.id==="q"){S.q=ev.target.value;render()}var bf=ev.target.closest&&ev.target.closest("#bform");if(bf)bSum(bf);if(/^bd_(zoom|x|y)$/.test(ev.target.id))badgeSliders(ev.target.id,ev.target.value)});
 document.addEventListener("change",function(ev){
   var i=ev.target.id;
   if(i==="wst"){S.wstatus=ev.target.value;render()}
@@ -1682,6 +1871,8 @@ document.addEventListener("change",function(ev){
       salNote()}
   }
   if(i==="by"){S.byear=ev.target.value;render()}
+  if(i==="bd_file"){badgeFile(ev.target.files&&ev.target.files[0]);return}
+  if(i==="bd_valid"){badgeSliders(i,ev.target.value);return}
   if(i==="dstat"){S.dstat=ev.target.value;render()}
   if(i==="dtype"&&!document.getElementById("docform")){S.dtype=ev.target.value;render()}
   if(i==="dmem"){S.dmem=ev.target.value;render()}
