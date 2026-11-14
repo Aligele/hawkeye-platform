@@ -348,7 +348,7 @@ var GENDERS=["Female","Male","Other"];
 var SB_URL="https://enpwvgtgavtfnbhapdcf.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucHd2Z3RnYXZ0Zm5iaGFwZGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTQyODMsImV4cCI6MjEwMDkzMDI4M30.VfngBOGGaPe1iPTc82jD-_C23_b7dfi1vXjDpPcB28s";
 var sb=null;
-var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],pays:[],badge:null,dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
+var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],pays:[],set:{employer_pin:"",employer_name:"Hawkeye Africa"},pmonth:"",pyear:"",badge:null,dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
 function isMgr(){return S.role==="admin"||S.role==="manager"}
 function isAdmin(){return S.role==="admin"}
 function roleName(r){return r==="admin"?"Admin":r==="manager"?"Manager":"Staff"}
@@ -381,8 +381,8 @@ var ICON={
 
 /* ---------- data ---------- */
 function nz(v){v=(v==null?"":String(v)).trim();return v===""?null:v}
-function wFromRow(r){return {id:r.id,workerNo:r.worker_no,name:r.name,idNo:r.id_no||"",kraPin:r.kra_pin||"",dob:r.dob||"",gender:r.gender||"",phone:r.phone||"",email:r.email||"",address:r.address||"",role:r.role_title||"",site:r.site||"",type:r.emp_type||"Permanent",status:r.status||"Active",startDate:r.start_date||"",pay:Number(r.pay||0),payMethod:r.pay_method||"",payAccount:r.pay_account||"",ecName:r.ec_name||"",ecRel:r.ec_rel||"",ecPhone:r.ec_phone||"",notes:r.notes||"",photoPath:r.photo_path||"",createdAt:r.created_at}}
-function wToRow(o){return {name:o.name,id_no:nz(o.idNo),kra_pin:nz(o.kraPin),dob:nz(o.dob),gender:nz(o.gender),phone:nz(o.phone),email:nz(o.email),address:nz(o.address),role_title:nz(o.role),site:nz(o.site),emp_type:o.type||"Permanent",status:o.status||"Active",start_date:nz(o.startDate),pay:Number(o.pay||0),pay_method:nz(o.payMethod),pay_account:nz(o.payAccount),ec_name:nz(o.ecName),ec_rel:nz(o.ecRel),ec_phone:nz(o.ecPhone),notes:nz(o.notes)}}
+function wFromRow(r){return {id:r.id,workerNo:r.worker_no,name:r.name,idNo:r.id_no||"",kraPin:r.kra_pin||"",dob:r.dob||"",gender:r.gender||"",phone:r.phone||"",email:r.email||"",address:r.address||"",role:r.role_title||"",site:r.site||"",type:r.emp_type||"Permanent",status:r.status||"Active",startDate:r.start_date||"",pay:Number(r.pay||0),allowance:Number(r.allowance||0),otherDed:Number(r.other_deduction||0),nssfNo:r.nssf_no||"",shifNo:r.shif_no||"",payMethod:r.pay_method||"",payAccount:r.pay_account||"",ecName:r.ec_name||"",ecRel:r.ec_rel||"",ecPhone:r.ec_phone||"",notes:r.notes||"",photoPath:r.photo_path||"",createdAt:r.created_at}}
+function wToRow(o){return {name:o.name,id_no:nz(o.idNo),kra_pin:nz(o.kraPin),dob:nz(o.dob),gender:nz(o.gender),phone:nz(o.phone),email:nz(o.email),address:nz(o.address),role_title:nz(o.role),site:nz(o.site),emp_type:o.type||"Permanent",status:o.status||"Active",start_date:nz(o.startDate),pay:Number(o.pay||0),allowance:Number(o.allowance||0),other_deduction:Number(o.otherDed||0),nssf_no:nz(o.nssfNo),shif_no:nz(o.shifNo),pay_method:nz(o.payMethod),pay_account:nz(o.payAccount),ec_name:nz(o.ecName),ec_rel:nz(o.ecRel),ec_phone:nz(o.ecPhone),notes:nz(o.notes)}}
 function mFromRow(r){return {id:r.user_id,name:r.full_name,email:r.email||"",role:r.role,active:r.active}}
 function nameOf(id){if(!id)return "";var w=byId(S.workers,id)||byId(S.roster,id);return w?w.name:""}
 function memberName(id){if(S.me&&id===S.me.id)return S.me.name;var m=byId(S.members,id);return m?m.name:"Staff member"}
@@ -411,11 +411,12 @@ async function loadAll(quiet){
       for(var j=0;j<r2.length;j++)if(r2[j].error)throw r2[j].error;
       S.roster=(r2[0].data||[]).map(function(x){return {id:x.id,workerNo:x.worker_no,name:x.name,status:x.status}});
       S.allExp=r2[1].data.map(eFromRow);
-      try{var rp=await sb.rpc("hk_my_payslips");S.pays=rp.error?[]:(rp.data||[]).map(function(x){return {id:x.expense_id,date:x.expense_date,amount:Number(x.amount),method:x.method||"",ref:x.ref||"",desc:x.description||"",worker:{id:x.worker_id,name:x.worker_name,workerNo:x.worker_no||"",role:x.role_title||"",site:x.site||"",empType:x.emp_type||"",startDate:x.start_date||""}}})}catch(e4){S.pays=[]}
+      try{var rp=await sb.rpc("hk_my_payslips");S.pays=rp.error?[]:(rp.data||[]).map(function(x){return {id:x.expense_id,date:x.expense_date,amount:Number(x.amount),method:x.method||"",ref:x.ref||"",desc:x.description||"",worker:{id:x.worker_id,name:x.worker_name,workerNo:x.worker_no||"",role:x.role_title||"",site:x.site||"",empType:x.emp_type||"",startDate:x.start_date||"",pay:Number(x.gross_pay||0),allowance:Number(x.allowance||0),otherDed:Number(x.other_deduction||0),kraPin:x.kra_pin||"",nssfNo:x.nssf_no||"",shifNo:x.shif_no||"",idNo:x.id_no||""}}})}catch(e4){S.pays=[]}
     }
     S.expenses=S.allExp.filter(function(e){return e.status==="approved"});
     try{var rs=await sb.from("hk_submissions").select("*").order("created_at",{ascending:false}).limit(1000);S.subs=rs.error?[]:rs.data.map(sFromRow)}catch(e2){S.subs=[]}
     try{var rd=await sb.from("hk_documents").select("*").order("created_at",{ascending:false}).limit(1000);S.docs=rd.error?[]:rd.data.map(dFromRow)}catch(e3){S.docs=[]}
+    try{var rset=await sb.from("hk_settings").select("*");if(!rset.error)(rset.data||[]).forEach(function(x){S.set[x.key]=x.value||""})}catch(e5){}
     S.loaded.w=S.loaded.e=S.loaded.s=true;
     return true;
   }catch(e){
@@ -462,7 +463,7 @@ function renderDrawer(){
     secs=[
       ["Dashboard",[T(ICON.home,"Overview","overview")]],
       ["Workforce",[T(ICON.people,"Workers","workers"),drItem(ICON.plus,"Enroll worker","enroll"),T(ICON.user,"Staff badges","badges"),T(ICON.file,"Staff documents","docs",S.docs.filter(function(d){return d.status==="submitted"}).length)]],
-      ["Finance",[T(ICON.cash,"Expenses and salaries","expenses"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
+      ["Finance",[T(ICON.cash,"Expenses and salaries","expenses"),T(ICON.file,"Payroll and P9","payroll"),T(ICON.check,"Approvals","approvals",pn),T(ICON.plan,"Budget plan","budget"),T(ICON.chart,"Analytics","analytics")]],
       ["Assignments",[T(ICON.file,"Files from staff","files",nNew)]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isAdmin()?[drItem(ICON.people,"Team members","team")]:[]).concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
@@ -675,7 +676,7 @@ function vStaff0(){
 function render(){
   var m=document.getElementById("main");
   var f=document.activeElement,keep=f&&f.id==="q"?f.selectionStart:null;
-  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="files"?vFiles():S.tab==="badges"?vBadges():S.tab==="docs"?vDocsMgr():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
+  m.innerHTML=!isMgr()?vStaff():S.tab==="workers"?vWorkers():S.tab==="expenses"?vExpenses():S.tab==="approvals"?vApprovals():S.tab==="payroll"?vPayroll():S.tab==="files"?vFiles():S.tab==="badges"?vBadges():S.tab==="docs"?vDocsMgr():S.tab==="budget"?vBudget():S.tab==="analytics"?vAnalytics():vOverview();
   renderNav();renderTop();
   if(keep!==null){var q=document.getElementById("q");if(q){q.focus();try{q.setSelectionRange(keep,keep)}catch(e){}}}
 }
@@ -707,7 +708,9 @@ function workerForm(w){
   h+='<fieldset style="margin-top:22px"><legend>Contact</legend><div class="grid2">'+fld("Phone","phone","tel",w.phone,{mode:"tel",ph:"07…"})+fld("Email","email","email",w.email)+"</div>"+fld("Home area / county","address","text",w.address)+"</fieldset>";
   h+='<fieldset style="margin-top:22px"><legend>Employment</legend><div class="grid2">'+fld("Job title","role","text",w.role)+fld("Department or site","site","text",w.site)+"</div>"+
     '<div class="grid2">'+sel("Employment type","type",TYPES,w.type||"Permanent")+sel("Status","status",STATUSES,w.status||"Active")+"</div>"+
-    '<div class="grid2">'+fld("Start date","startDate","date",w.startDate||(edit?"":today()))+fld("Monthly pay (KES)","pay","number",w.pay||"",{mode:"decimal"})+"</div>"+
+    '<div class="grid2">'+fld("Start date","startDate","date",w.startDate||(edit?"":today()))+fld("Basic monthly pay (KES, gross)","pay","number",w.pay||"",{mode:"decimal"})+"</div>"+
+    '<div class="grid2">'+fld("Taxable allowances (KES / month)","allowance","number",w.allowance||"",{mode:"decimal"})+fld("Other deductions (loan, SACCO, advance)","otherDed","number",w.otherDed||"",{mode:"decimal"})+"</div>"+
+    '<div class="grid2">'+fld("NSSF number","nssfNo","text",w.nssfNo)+fld("SHIF number","shifNo","text",w.shifNo)+"</div>"+
     '<div class="grid2">'+sel("Paid by","payMethod",METHODS,w.payMethod||"M-PESA")+fld("M-PESA number or account","payAccount","text",w.payAccount)+"</div></fieldset>";
   h+='<fieldset style="margin-top:22px"><legend>Next of kin</legend><div class="grid2">'+fld("Name","ecName","text",w.ecName)+fld("Relationship","ecRel","text",w.ecRel)+"</div>"+fld("Phone","ecPhone","tel",w.ecPhone,{mode:"tel"})+"</fieldset>";
   h+='<fieldset style="margin-top:22px"><legend>Notes</legend><div class="fld"><label for="f_notes" class="sr" style="position:absolute;left:-9999px">Notes</label><textarea class="textarea" id="f_notes" name="notes">'+esc(w.notes)+"</textarea></div></fieldset>";
@@ -729,7 +732,7 @@ function openWorker(id){
   var paid=S.expenses.filter(function(e){return e.workerId===id&&e.category==="Salary"&&e.date&&e.date.slice(0,7)===mk0});
   var paidAmt=sum(paid,function(e){return e.amount});
   h+='<div class="sec" style="margin-top:0"><h3>Salary — '+esc(mlabel(mk0))+'</h3><div class="sum"><strong>'+(paid.length?fmt(paidAmt):(w.pay?fmt(w.pay):"No pay set"))+'</strong><span>'+(paid.length?'<span class="pill ok">Paid</span>':(w.pay?'<span class="pill warn">Due</span>':""))+"</span></div>"+(canAdd()&&w.status!=="Exited"?'<button class="btn pri" data-act="paysal" data-id="'+esc(id)+'">'+ICON.cash+(paid.length?"Record another salary payment":"Pay salary")+"</button>":"")+"</div>";
-  h+='<div class="sec" style="margin-top:0"><h3>Identity</h3>'+kv([["National ID",w.idNo,1],["KRA PIN",w.kraPin,1],["Date of birth",w.dob?fdate(w.dob):""],["Gender",w.gender]])+"</div>";
+  h+='<div class="sec" style="margin-top:0"><h3>Identity</h3>'+kv([["National ID",w.idNo,1],["KRA PIN",w.kraPin,1],["NSSF number",w.nssfNo,1],["SHIF number",w.shifNo,1],["Date of birth",w.dob?fdate(w.dob):""],["Gender",w.gender]])+"</div>";
   h+='<div class="sec" style="margin-top:0"><h3>Contact</h3>'+kv([["Phone",w.phone,1],["Email",w.email],["Home area",w.address]])+"</div>";
   h+='<div class="sec" style="margin-top:0"><h3>Next of kin</h3>'+kv([["Name",w.ecName],["Relationship",w.ecRel],["Phone",w.ecPhone,1]])+"</div>";
   if(w.notes)h+='<div class="sec" style="margin-top:0"><h3>Notes</h3><div class="list" style="padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere">'+esc(w.notes)+"</div></div>";
@@ -913,7 +916,7 @@ function startPoll(){
 async function signOut(){
   clearInterval(pollT);
   try{await sb.auth.signOut()}catch(e){}
-  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.docs=[];S.pays=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
+  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.docs=[];S.pays=[];S.pmonth="";S.pyear="";S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
   showAuth("in");
 }
 
@@ -1698,12 +1701,23 @@ async function badgePng(){
   try{await S.dl.save({filename:badgeName()+"-front.png",data:blob})}catch(e){if(e&&e.code!=="declined")toast("Could not save the picture.")}
 }
 
-/* ---------- payslips ---------- */
+/* ---------- payroll, payslips, P9 ---------- */
 var MONTHS=["january","february","march","april","may","june","july","august","september","october","november","december"];
 function salMonthKey(desc,date){
   var m=/^Salary - ([A-Za-z]+) (\d{4})$/.exec(desc||"");
   if(m){var i=MONTHS.indexOf(m[1].toLowerCase());if(i>=0)return m[2]+"-"+String(i+1).padStart(2,"0")}
   return (date||"").slice(0,7);
+}
+/* Kenya statutory rates. Edit here if the law changes. */
+function r2(n){return Math.round(n*100)/100}
+function nssfCap(key){return key>="2026-02"?108000:key>="2025-02"?72000:18000}
+function payeTax(t){var bands=[[24000,.1],[8333,.25],[467667,.3],[300000,.325],[Infinity,.35]],tax=0,rem=Math.max(0,t);bands.forEach(function(b){var a=Math.min(rem,b[0]);tax+=a*b[1];rem-=a});return tax}
+function calcPay(w,key){
+  var basic=Number(w.pay||0),allow=Number(w.allowance||0),gross=basic+allow;
+  var nssf=r2(Math.min(gross,nssfCap(key))*0.06),shif=gross>0?r2(Math.max(300,gross*0.0275)):0,ahl=r2(gross*0.015);
+  var taxable=Math.max(0,r2(gross-nssf-shif-ahl)),charged=r2(payeTax(taxable)),relief=gross>0?2400:0,paye=Math.max(0,r2(charged-relief));
+  var other=Number(w.otherDed||0),ded=r2(nssf+shif+ahl+paye+other);
+  return {basic:basic,allow:allow,gross:gross,nssf:nssf,shif:shif,ahl:ahl,taxable:taxable,charged:charged,relief:relief,paye:paye,other:other,ded:ded,net:r2(gross-ded)};
 }
 function payGroups(){
   var g={};
@@ -1715,43 +1729,120 @@ function vPayslips(){
   if(!S.loaded.s)return h+loading();
   var gs=payGroups();
   if(!gs.length)return h+'<div class="sec" style="margin-top:14px"><div class="empty"><b>No payslips yet</b><span>A payslip appears here after your salary is recorded. If you have been paid and see nothing, ask your manager to check that the email on your worker record is the one you sign in with.</span></div></div>';
+  var yrs=[];gs.forEach(function(g){var y=g.key.slice(0,4);if(yrs.indexOf(y)<0)yrs.push(y)});
   h+='<p class="note" style="margin:8px 0 0">Tap a month to download its payslip as a PDF.</p><div class="sec" style="margin-top:14px"><div class="list">'+gs.map(function(g){
-    var last=g.pays.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"")})[0];
-    return '<button class="item" data-act="payslip" data-m="'+esc(g.key)+'"><span class="ftype">PDF</span><span class="grow"><span class="t1" style="display:block">'+esc(mlabel(g.key))+'</span><span class="t2" style="display:block">'+esc("Paid "+fdate(last.date)+(last.method?" · "+last.method:"")+(g.pays.length>1?" · "+g.pays.length+" payments":""))+'</span></span><b>'+esc(fmt(g.total))+"</b></button>";
+    var last=g.pays.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"")})[0],c=calcPay(last.worker,g.key);
+    return '<button class="item" data-act="payslip" data-m="'+esc(g.key)+'"><span class="ftype">PDF</span><span class="grow"><span class="t1" style="display:block">'+esc(mlabel(g.key))+'</span><span class="t2" style="display:block">'+esc("Gross "+fmt(c.gross)+" · Deductions "+fmt(c.ded))+'</span></span><b>'+esc(fmt(c.net))+"</b></button>";
   }).join("")+"</div></div>";
+  h+='<div class="sec"><h3>Annual tax card (P9)</h3><div class="acts">'+yrs.map(function(y){return '<button class="btn" data-act="p9s" data-y="'+y+'">'+ICON.down+"P9 "+y+"</button>"}).join("")+"</div></div>";
   return h;
+}
+function payInfoRows(wk){return [["Employee",wk.name],["Worker number",wk.workerNo],["National ID",wk.idNo],["KRA PIN",wk.kraPin],["NSSF number",wk.nssfNo],["SHIF number",wk.shifNo],["Job title",wk.role],["Site",wk.site]].filter(function(r){return r[1]})}
+function pdfHead(doc,title,right,sub){
+  var W=doc.internal.pageSize.getWidth(),logo=document.querySelector(".logo");
+  try{if(logo)doc.addImage(logo.src,"JPEG",40,32,34,50)}catch(e){}
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(18,21,18);doc.text(pt(S.set.employer_name||"Hawkeye Africa"),88,56);
+  doc.setFont("helvetica","normal");doc.setFontSize(11);doc.setTextColor(78,94,105);doc.text(pt(title),88,74);
+  doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setTextColor(15,110,61);doc.text(pt(right),W-40,56,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(78,94,105);doc.text(pt(sub||""),W-40,72,{align:"right"});
+  doc.setLineWidth(2);doc.setDrawColor(15,110,61);doc.line(40,96,W*0.6,96);doc.setDrawColor(196,30,42);doc.line(W*0.6,96,W-40,96);doc.setLineWidth(0.2);
 }
 async function downloadPayslip(wk,key,pays){
   if(!guard())return;
-  var J=window.jspdf.jsPDF,doc=new J({orientation:"portrait",unit:"pt",format:"a4"}),W=doc.internal.pageSize.getWidth();
-  var logo=document.querySelector(".logo");
-  try{if(logo)doc.addImage(logo.src,"JPEG",40,32,34,50)}catch(e){}
-  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(18,21,18);doc.text("Hawkeye Africa",88,56);
-  doc.setFont("helvetica","normal");doc.setFontSize(11);doc.setTextColor(78,94,105);doc.text("Payslip",88,74);
-  doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setTextColor(15,110,61);doc.text(pt(mlabel(key)),W-40,56,{align:"right"});
-  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(78,94,105);doc.text("Ref. PS-"+pt(wk.workerNo||String(wk.id).slice(0,6))+"-"+key,W-40,72,{align:"right"});
-  doc.setLineWidth(2);doc.setDrawColor(15,110,61);doc.line(40,96,W*0.6,96);doc.setDrawColor(196,30,42);doc.line(W*0.6,96,W-40,96);doc.setLineWidth(0.2);
-  var info=[["Employee",wk.name],["Worker number",wk.workerNo],["Job title",wk.role],["Site",wk.site],["Employment",wk.empType],["Start date",wk.startDate?fdate(wk.startDate):""]].filter(function(r){return r[1]});
-  doc.autoTable({startY:116,body:info.map(function(r){return [pt(r[0]),pt(r[1])]}),theme:"plain",styles:{font:"helvetica",fontSize:10,cellPadding:3,textColor:[18,21,18]},columnStyles:{0:{textColor:[78,94,105],cellWidth:110},1:{fontStyle:"bold"}},margin:{left:40,right:40}});
-  var y=doc.lastAutoTable.finalY+22,total=sum(pays,function(p){return p.amount});
-  var rows=pays.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"")}).map(function(p){return [fdate(p.date),pt(p.desc||"Salary - "+mlabel(key)),pt(p.method),pt(p.ref),nf(p.amount)]});
-  y=tbl(doc,y,["Date paid","Description","Paid by","Reference","Amount (KES)"],rows,["","","","Net pay",nf(total)],[4]);
-  y+=30;doc.setFillColor(10,61,36);doc.roundedRect(40,y,W-80,64,8,8,"F");
-  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(11);doc.text("Net pay for "+pt(mlabel(key)),60,y+26);
-  doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text(pt(fmt(total)),W-60,y+42,{align:"right"});
-  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(78,94,105);
-  doc.text(doc.splitTextToSize("The amount shown is the net amount paid to the employee, as recorded in the Hawkeye Management System. Issued "+fdate(today())+". This payslip is computer generated and needs no signature.",W-80),40,y+90);
+  var J=window.jspdf.jsPDF,doc=new J({orientation:"portrait",unit:"pt",format:"a4"}),W=doc.internal.pageSize.getWidth(),c=calcPay(wk,key);
+  pdfHead(doc,"Payslip",mlabel(key),"Ref. PS-"+(wk.workerNo||String(wk.id).slice(0,6))+"-"+key);
+  doc.autoTable({startY:112,body:payInfoRows(wk).map(function(r){return [pt(r[0]),pt(r[1])]}),theme:"plain",styles:{font:"helvetica",fontSize:9.5,cellPadding:2.5,textColor:[18,21,18]},columnStyles:{0:{textColor:[78,94,105],cellWidth:110},1:{fontStyle:"bold"}},margin:{left:40,right:40}});
+  var y=doc.lastAutoTable.finalY+16;
+  var rows=[["Basic pay",nf(c.basic)]];if(c.allow)rows.push(["Taxable allowances",nf(c.allow)]);
+  rows.push([{content:"Gross pay",styles:{fontStyle:"bold"}},{content:nf(c.gross),styles:{fontStyle:"bold"}}]);
+  rows.push(["NSSF employee contribution (6%)","- "+nf(c.nssf)],["SHIF (2.75% of gross)","- "+nf(c.shif)],["Affordable Housing Levy (1.5%)","- "+nf(c.ahl)]);
+  rows.push([{content:"Taxable pay (gross less NSSF, SHIF, levy)",styles:{textColor:[78,94,105]}},{content:nf(c.taxable),styles:{textColor:[78,94,105]}}]);
+  rows.push(["Tax charged",nf(c.charged)],["Personal relief","- "+nf(c.relief)],["PAYE (income tax)","- "+nf(c.paye)]);
+  if(c.other)rows.push(["Other deductions (loan, SACCO, advance)","- "+nf(c.other)]);
+  y=tbl(doc,y,["Earnings and deductions","Amount (KES)"],rows,["Total deductions",nf(c.ded)],[1]);
+  y+=18;doc.setFillColor(10,61,36);doc.roundedRect(40,y,W-80,56,8,8,"F");
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(11);doc.text("Net pay for "+pt(mlabel(key)),60,y+24);
+  doc.setFont("helvetica","bold");doc.setFontSize(21);doc.text(pt(fmt(c.net)),W-60,y+38,{align:"right"});
+  y+=76;
+  var prow=pays.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"")}).map(function(p){return [fdate(p.date),pt(p.method),pt(p.ref),nf(p.amount)]});
+  var paid=sum(pays,function(p){return p.amount});
+  y=tbl(doc,y,["Payments recorded","Paid by","Reference","Amount (KES)"],prow,["","","Total paid",nf(paid)],[3]);
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(78,94,105);
+  var note="Employer contributions (not deducted from pay): NSSF "+nf(c.nssf)+", Housing Levy "+nf(c.ahl)+". Issued "+fdate(today())+". Computer generated; no signature needed.";
+  if(pays.length&&Math.abs(paid-c.net)>1)note="Note: payments recorded ("+nf(paid)+") differ from the calculated net pay ("+nf(c.net)+"). "+note;
+  doc.text(doc.splitTextToSize(pt(note),W-80),40,doc.lastAutoTable.finalY+20);
   await savePdf(doc,"payslip-"+(wk.workerNo||"staff")+"-"+key+".pdf");
 }
 function staffPayslip(key){
   var ps=S.pays.filter(function(p){return salMonthKey(p.desc,p.date)===key});
   if(!ps.length)return;downloadPayslip(ps[0].worker,key,ps);
 }
+function paidIn(wid,key){return S.allExp.filter(function(x){return x.category==="Salary"&&x.status==="approved"&&x.workerId===wid&&salMonthKey(x.description,x.date)===key}).map(function(x){return {date:x.date,amount:x.amount,method:x.method,ref:x.ref,desc:x.description}})}
+function mgrPayslipFor(w,key){downloadPayslip(w,key,paidIn(w.id,key))}
 function mgrPayslip(eid){
   var e=byId(S.allExp,eid),w=e&&byId(S.workers,e.workerId);if(!e||!w){toast("Could not find that worker.");return}
-  var key=salMonthKey(e.description,e.date);
-  var ps=S.allExp.filter(function(x){return x.category==="Salary"&&x.status==="approved"&&x.workerId===w.id&&salMonthKey(x.description,x.date)===key}).map(function(x){return {date:x.date,amount:x.amount,method:x.method,ref:x.ref,desc:x.description}});
-  downloadPayslip({id:w.id,name:w.name,workerNo:w.workerNo,role:w.role,site:w.site,empType:w.empType,startDate:w.startDate},key,ps);
+  mgrPayslipFor(w,salMonthKey(e.description,e.date));
+}
+async function p9Pdf(wk,year,keys){
+  if(!guard())return;
+  if(!keys.length){toast("No salary payments recorded for "+year+".");return}
+  var J=window.jspdf.jsPDF,doc=new J({orientation:"landscape",unit:"pt",format:"a4"}),W=doc.internal.pageSize.getWidth();
+  pdfHead(doc,"Tax Deduction Card (P9) - Year "+year,"P9 "+year,"Employer PIN: "+(S.set.employer_pin||"not set"));
+  doc.autoTable({startY:108,body:[["Employer",pt(S.set.employer_name||"Hawkeye Africa"),"Employer PIN",pt(S.set.employer_pin||"")],["Employee",pt(wk.name),"Employee KRA PIN",pt(wk.kraPin||"")],["National ID",pt(wk.idNo||""),"NSSF / SHIF no.",pt([wk.nssfNo,wk.shifNo].filter(Boolean).join(" / "))]],theme:"plain",styles:{font:"helvetica",fontSize:9.5,cellPadding:2.5,textColor:[18,21,18]},columnStyles:{0:{textColor:[78,94,105],cellWidth:80},1:{fontStyle:"bold",cellWidth:260},2:{textColor:[78,94,105],cellWidth:100},3:{fontStyle:"bold"}},margin:{left:40,right:40}});
+  var tot={basic:0,allow:0,gross:0,nssf:0,shif:0,ahl:0,taxable:0,charged:0,relief:0,paye:0};
+  var rows=keys.slice().sort().map(function(k){var c=calcPay(wk,k);Object.keys(tot).forEach(function(f){tot[f]+=c[f]});
+    return [pt(mlabel(k).split(" ")[0]),nf(c.basic),nf(c.allow),nf(c.gross),nf(c.nssf),nf(c.shif),nf(c.ahl),nf(c.taxable),nf(c.charged),nf(c.relief),nf(c.paye)]});
+  var y=tbl(doc,doc.lastAutoTable.finalY+14,["Month","Basic salary","Benefits / allowances","Gross pay","NSSF","SHIF","Housing levy","Taxable pay","Tax charged","Personal relief","PAYE tax"],rows,["Total",nf(tot.basic),nf(tot.allow),nf(tot.gross),nf(tot.nssf),nf(tot.shif),nf(tot.ahl),nf(tot.taxable),nf(tot.charged),nf(tot.relief),nf(tot.paye)],[1,2,3,4,5,6,7,8,9,10]);
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(78,94,105);
+  doc.text(doc.splitTextToSize("Taxable pay = gross pay less NSSF, SHIF and Affordable Housing Levy. PAYE tax = tax charged less personal relief (KES 2,400 per month). Only months with a recorded salary payment are listed. Prepared from the Hawkeye Management System on "+fdate(today())+"; check against the monthly returns filed with KRA before submitting.",W-80),40,y+20);
+  await savePdf(doc,"P9-"+(wk.workerNo||"staff")+"-"+year+".pdf");
+}
+function p9Keys(wid,year,fromPays){
+  var k=[];
+  (fromPays?S.pays:S.allExp.filter(function(x){return x.category==="Salary"&&x.status==="approved"&&x.workerId===wid})).forEach(function(x){
+    var key=fromPays?salMonthKey(x.desc,x.date):salMonthKey(x.description,x.date);
+    if(key.slice(0,4)===String(year)&&k.indexOf(key)<0)k.push(key)});
+  return k.sort();
+}
+function staffP9(year){var p=S.pays[0];if(!p)return;p9Pdf(p.worker,year,p9Keys(null,year,true))}
+function mgrP9(wid){var w=byId(S.workers,wid);if(!w)return;var y=S.pyear||today().slice(0,4);p9Pdf(w,y,p9Keys(wid,y,false))}
+/* manager payroll page */
+function payrollRows(m){
+  return S.workers.filter(function(w){return w.status==="Active"&&(w.pay>0||w.allowance>0)}).sort(function(a,b){return (a.name||"").localeCompare(b.name||"")}).map(function(w){return {w:w,c:calcPay(w,m),paid:paidIn(w.id,m).length>0}});
+}
+function vPayroll(){
+  if(!S.pmonth)S.pmonth=thisMonth();if(!S.pyear)S.pyear=today().slice(0,4);
+  var ms=[],d=new Date();for(var i=0;i<18;i++){ms.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));d.setMonth(d.getMonth()-1,1)}
+  var ys=[];for(var y0=Number(today().slice(0,4));y0>=2024;y0--)ys.push(String(y0));
+  var h='<div class="row-h"><h2>Payroll and P9</h2></div>';
+  h+='<p class="note" style="margin:6px 0 0">Deductions are worked out from each worker\'s basic pay and allowances (set on the worker\'s record): NSSF, SHIF, Housing Levy and PAYE.</p>';
+  h+='<div class="controls" style="margin-top:14px"><select class="select" id="pm" aria-label="Month">'+ms.map(function(m){return '<option value="'+m+'"'+(S.pmonth===m?" selected":"")+">"+esc(mlabel(m))+"</option>"}).join("")+"</select></div>";
+  var rows=payrollRows(S.pmonth);
+  if(!rows.length)return h+'<div class="empty" style="margin-top:14px"><b>No workers with pay set</b><span>Add the basic monthly pay on each worker\'s record.</span></div>';
+  var T={gross:0,nssf:0,shif:0,ahl:0,paye:0,other:0,net:0};rows.forEach(function(r){Object.keys(T).forEach(function(k){T[k]+=r.c[k]})});
+  h+='<div class="sum"><strong>'+esc(fmt(T.net))+'</strong><span>net pay · gross '+esc(fmt(T.gross))+" · "+rows.length+" workers</span></div>";
+  h+='<div class="list" style="margin-top:10px">'+[["NSSF",T.nssf],["SHIF",T.shif],["Housing Levy",T.ahl],["PAYE",T.paye],["Other deductions",T.other]].map(function(x){return '<div class="item"><span class="grow"><span class="t1">'+x[0]+"</span></span><b>"+esc(fmt(x[1]))+"</b></div>"}).join("")+"</div>";
+  h+='<div class="acts" style="margin-top:12px"><button class="btn" data-act="paypdf">'+ICON.down+'Summary PDF</button><button class="btn" data-act="paycsv">'+ICON.down+"CSV</button></div>";
+  h+='<div class="sec"><h3>Workers</h3><div class="list">'+rows.map(function(r){return '<div class="item" style="flex-wrap:wrap;gap:8px"><span class="grow"><span class="t1" style="display:block">'+esc(r.w.name)+'</span><span class="t2" style="display:block">'+esc("Gross "+fmt(r.c.gross)+" · PAYE "+fmt(r.c.paye)+" · Net "+fmt(r.c.net))+(r.paid?"":" · not yet paid")+'</span></span><button class="btn sm" data-act="payslipw" data-id="'+esc(r.w.id)+'">Payslip</button><button class="btn sm" data-act="p9w" data-id="'+esc(r.w.id)+'">P9</button></div>'}).join("")+"</div></div>";
+  h+='<div class="sec"><h3>P9 year and employer details</h3><div class="grid2"><div class="fld"><label for="py">P9 year</label><select class="select" id="py">'+ys.map(function(y){return '<option'+(S.pyear===y?" selected":"")+">"+y+"</option>"}).join("")+"</select></div>"+
+    '<div class="fld"><label for="epin">Employer KRA PIN</label><input class="input" id="epin" value="'+esc(S.set.employer_pin||"")+'"'+(isAdmin()?"":" disabled")+' autocomplete="off"></div></div>'+(isAdmin()?'<div class="acts"><button class="btn" data-act="savepin">Save employer PIN</button></div>':'<p class="note">Only an administrator can change the employer PIN.</p>')+"</div>";
+  return h;
+}
+async function savePin(){
+  var v=(document.getElementById("epin").value||"").trim().toUpperCase();
+  var r=await sb.from("hk_settings").upsert({key:"employer_pin",value:v,updated_at:new Date().toISOString()},{onConflict:"key"});
+  if(r.error){toast(dbErr(r.error));return}
+  S.set.employer_pin=v;toast("Employer PIN saved.");
+}
+async function payrollPdf(){
+  if(!guard())return;var m=S.pmonth,rows=payrollRows(m),doc=newDoc();
+  pdfHead(doc,"Payroll summary","Payroll",mlabel(m));
+  var T={gross:0,nssf:0,shif:0,ahl:0,paye:0,other:0,net:0};rows.forEach(function(r){Object.keys(T).forEach(function(k){T[k]+=r.c[k]})});
+  tbl(doc,112,["Worker","KRA PIN","Gross","NSSF","SHIF","Housing levy","PAYE","Other","Net pay"],rows.map(function(r){return [pt(r.w.name),pt(r.w.kraPin),nf(r.c.gross),nf(r.c.nssf),nf(r.c.shif),nf(r.c.ahl),nf(r.c.paye),nf(r.c.other),nf(r.c.net)]}),["Total","",nf(T.gross),nf(T.nssf),nf(T.shif),nf(T.ahl),nf(T.paye),nf(T.other),nf(T.net)],[2,3,4,5,6,7,8]);
+  await savePdf(doc,"payroll-"+m+".pdf");
+}
+function payrollCsv(){
+  var m=S.pmonth;exportCsv("payroll-"+m+".csv",["Worker no","Name","KRA PIN","NSSF no","SHIF no","Basic","Allowances","Gross","NSSF","SHIF","Housing levy","Taxable pay","PAYE","Other deductions","Net pay"],payrollRows(m).map(function(r){var c=r.c,w=r.w;return [w.workerNo,w.name,w.kraPin,w.nssfNo,w.shifNo,c.basic,c.allow,c.gross,c.nssf,c.shif,c.ahl,c.taxable,c.paye,c.other,c.net]}));
 }
 
 /* ---------- install as app ---------- */
@@ -1786,6 +1877,12 @@ document.addEventListener("click",function(ev){
   if(a==="csvb"){exportBudget();return}
   if(a==="stab"){S.stab=t.dataset.v;render();window.scrollTo(0,0);return}
   if(a==="payslip"){staffPayslip(t.dataset.m);return}
+  if(a==="p9s"){staffP9(t.dataset.y);return}
+  if(a==="p9w"){mgrP9(id);return}
+  if(a==="payslipw"){var pw=byId(S.workers,id);if(pw)mgrPayslipFor(pw,S.pmonth);return}
+  if(a==="paypdf"){payrollPdf();return}
+  if(a==="paycsv"){payrollCsv();return}
+  if(a==="savepin"){savePin();return}
   if(a==="payslipx"){mgrPayslip(id);return}
   if(a==="badge"){openBadge(id);return}
   if(a==="bsave"){badgeSave();return}
@@ -1922,6 +2019,8 @@ document.addEventListener("change",function(ev){
   var i=ev.target.id;
   if(i==="wst"){S.wstatus=ev.target.value;render()}
   if(i==="em"){S.emonth=ev.target.value;render()}
+  if(i==="pm"){S.pmonth=ev.target.value;render()}
+  if(i==="py"){S.pyear=ev.target.value}
   if(i==="ec"){S.ecat=ev.target.value;render()}
   if(i==="am"){S.amonth=ev.target.value;render()}
   if(i==="f_sw"||i==="f_sm"){
