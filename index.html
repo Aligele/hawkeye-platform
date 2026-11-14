@@ -348,7 +348,7 @@ var GENDERS=["Female","Male","Other"];
 var SB_URL="https://enpwvgtgavtfnbhapdcf.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucHd2Z3RnYXZ0Zm5iaGFwZGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNTQyODMsImV4cCI6MjEwMDkzMDI4M30.VfngBOGGaPe1iPTc82jD-_C23_b7dfi1vXjDpPcB28s";
 var sb=null;
-var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],badge:null,dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
+var S={tab:"overview",q:"",wstatus:"All",emonth:"",ecat:"All",amonth:"",workers:[],expenses:[],allExp:[],subs:[],docs:[],pays:[],badge:null,dtype:"All",dstat:"All",dmem:"All",budgets:[],byear:"",stab:"exp",sfilter:"All",smem:"All",roster:[],members:[],me:null,role:"",loaded:{w:false,e:false,s:false},sheet:null,confirm:false,dl:null,authMode:"in",setupDone:null};
 function isMgr(){return S.role==="admin"||S.role==="manager"}
 function isAdmin(){return S.role==="admin"}
 function roleName(r){return r==="admin"?"Admin":r==="manager"?"Manager":"Staff"}
@@ -411,6 +411,7 @@ async function loadAll(quiet){
       for(var j=0;j<r2.length;j++)if(r2[j].error)throw r2[j].error;
       S.roster=(r2[0].data||[]).map(function(x){return {id:x.id,workerNo:x.worker_no,name:x.name,status:x.status}});
       S.allExp=r2[1].data.map(eFromRow);
+      try{var rp=await sb.rpc("hk_my_payslips");S.pays=rp.error?[]:(rp.data||[]).map(function(x){return {id:x.expense_id,date:x.expense_date,amount:Number(x.amount),method:x.method||"",ref:x.ref||"",desc:x.description||"",worker:{id:x.worker_id,name:x.worker_name,workerNo:x.worker_no||"",role:x.role_title||"",site:x.site||"",empType:x.emp_type||"",startDate:x.start_date||""}}})}catch(e4){S.pays=[]}
     }
     S.expenses=S.allExp.filter(function(e){return e.status==="approved"});
     try{var rs=await sb.from("hk_submissions").select("*").order("created_at",{ascending:false}).limit(1000);S.subs=rs.error?[]:rs.data.map(sFromRow)}catch(e2){S.subs=[]}
@@ -467,7 +468,7 @@ function renderDrawer(){
     ];
   }else{
     secs=[
-      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"&&S.stab!=="guide"&&S.stab!=="docs"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg"),drItem(ICON.user,"My documents","stab",' data-v="docs"',S.stab==="docs",myDocAlerts())]],
+      ["My work",[drItem(ICON.cash,"My expenses","stab",' data-v="exp"',S.stab!=="asg"&&S.stab!=="guide"&&S.stab!=="docs"&&S.stab!=="pay"),drItem(ICON.cash,"My payslips","stab",' data-v="pay"',S.stab==="pay"),drItem(ICON.file,"My assignments","stab",' data-v="asg"',S.stab==="asg"),drItem(ICON.user,"My documents","stab",' data-v="docs"',S.stab==="docs",myDocAlerts())]],
       ["Guides",[drItem(ICON.plan,"NG-CDF SQL Maker","stab",' data-v="guide"',S.stab==="guide")]],
       ["Account",[drItem(ICON.user,"My account","account")].concat(isInstalled()?[]:[drItem(ICON.down,"Install app","install")]).concat([drItem(ICON.out,"Sign out","signout")])]
     ];
@@ -644,7 +645,7 @@ function vApprovals(){
   if(dec.length)h+='<div class="sec"><h3>Recently decided</h3><div class="list">'+dec.map(function(e){return '<button class="item" data-act="viewe" data-id="'+esc(e.id)+'"><span class="grow"><span class="t1" style="display:block">'+esc(e.description||e.category)+'</span><span class="t2" style="display:block">'+esc(memberName(e.submittedBy)+" · "+fdate(e.date))+'</span></span><span><span class="amt" style="display:block">'+fmt(e.amount)+'</span><span class="pill '+(e.status==="approved"?"ok":"bad")+'" style="display:block;margin-top:4px;text-align:center">'+(e.status==="approved"?"Approved":"Rejected")+"</span></span></button>"}).join("")+"</div></div>";
   return h;
 }
-function vStaff(){return S.stab==="asg"?vAssignments():S.stab==="guide"?vGuide():S.stab==="docs"?vMyDocs():vStaff0()}
+function vStaff(){return S.stab==="asg"?vAssignments():S.stab==="guide"?vGuide():S.stab==="docs"?vMyDocs():S.stab==="pay"?vPayslips():vStaff0()}
 function vStaff0(){
   var mine=S.allExp.slice().sort(byDateDesc);
   var pend=mine.filter(function(e){return e.status==="pending"});
@@ -751,7 +752,7 @@ function expenseForm(e,wid,pre){
     fld("What was it for?","description","text",e.description,{ph:"e.g. Fuel for site visit"})+
     '<div class="fld"><label for="f_worker">Paid to or used by</label><select class="select" id="f_worker" name="worker">'+wo+"</select></div>"+
     '<div class="grid2">'+sel("Paid by","method",METHODS,e.method||"Cash")+fld("Reference (M-PESA code)","ref","text",e.ref)+"</div></fieldset>"+
-    '<div class="acts" style="margin-top:22px"><button class="btn pri" type="submit">'+(edit?"Save changes":"Save expense")+'</button>'+(edit?'<button class="btn bad" type="button" data-act="dele" data-id="'+esc(e.id)+'">'+(S.confirm?"Tap again to delete":"Delete")+"</button>":"")+'<button class="btn" type="button" data-act="close">Cancel</button></div></form>';
+    '<div class="acts" style="margin-top:22px"><button class="btn pri" type="submit">'+(edit?"Save changes":"Save expense")+'</button>'+(edit&&e.category==="Salary"&&e.workerId&&e.status==="approved"?'<button class="btn" type="button" data-act="payslipx" data-id="'+esc(e.id)+'">Payslip (PDF)</button>':"")+(edit?'<button class="btn bad" type="button" data-act="dele" data-id="'+esc(e.id)+'">'+(S.confirm?"Tap again to delete":"Delete")+"</button>":"")+'<button class="btn" type="button" data-act="close">Cancel</button></div></form>';
   return h;
 }
 function openExpense(e,wid,pre){openSheet(e?"Edit expense":pre&&pre.category==="Salary"?"Pay salary":"Add expense",expenseForm(e,wid,pre));S.sheet=e?{t:"eedit",id:e.id}:{t:"enew"}}
@@ -811,6 +812,7 @@ function openExpenseView(e){
   if(e.decisionNote)rows.push(["Reason",e.decisionNote]);
   var h=kv(rows);
   if(isMgr()&&e.status==="pending")h+='<div class="acts"><button class="btn pri" data-act="appr" data-id="'+esc(e.id)+'">Approve</button><button class="btn bad" data-act="rej" data-id="'+esc(e.id)+'">Reject</button></div>';
+  if(isMgr()&&e.category==="Salary"&&e.workerId&&e.status==="approved")h+='<div class="acts"><button class="btn pri" data-act="payslipx" data-id="'+esc(e.id)+'">'+ICON.down+"Payslip (PDF)</button></div>";
   if(isMgr())h+='<div class="acts"><button class="btn" data-act="edite" data-id="'+esc(e.id)+'">Edit</button></div>';
   openSheet("Expense",h);
 }
@@ -911,7 +913,7 @@ function startPoll(){
 async function signOut(){
   clearInterval(pollT);
   try{await sb.auth.signOut()}catch(e){}
-  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.docs=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
+  closeDrawer();var dd=document.getElementById("drawer");if(dd)dd.innerHTML="";S.me=null;S.role="";S.workers=[];S.expenses=[];S.allExp=[];S.roster=[];S.members=[];S.subs=[];S.docs=[];S.pays=[];S.budgets=[];S.stab="exp";S.loaded={w:false,e:false,s:false};
   showAuth("in");
 }
 
@@ -1696,6 +1698,62 @@ async function badgePng(){
   try{await S.dl.save({filename:badgeName()+"-front.png",data:blob})}catch(e){if(e&&e.code!=="declined")toast("Could not save the picture.")}
 }
 
+/* ---------- payslips ---------- */
+var MONTHS=["january","february","march","april","may","june","july","august","september","october","november","december"];
+function salMonthKey(desc,date){
+  var m=/^Salary - ([A-Za-z]+) (\d{4})$/.exec(desc||"");
+  if(m){var i=MONTHS.indexOf(m[1].toLowerCase());if(i>=0)return m[2]+"-"+String(i+1).padStart(2,"0")}
+  return (date||"").slice(0,7);
+}
+function payGroups(){
+  var g={};
+  S.pays.forEach(function(p){var k=salMonthKey(p.desc,p.date);(g[k]=g[k]||[]).push(p)});
+  return Object.keys(g).sort().reverse().map(function(k){return {key:k,pays:g[k],total:sum(g[k],function(p){return p.amount})}});
+}
+function vPayslips(){
+  var h='<div class="row-h"><div><h2>My payslips</h2><span class="wno">'+esc(S.me.name)+"</span></div></div>";
+  if(!S.loaded.s)return h+loading();
+  var gs=payGroups();
+  if(!gs.length)return h+'<div class="sec" style="margin-top:14px"><div class="empty"><b>No payslips yet</b><span>A payslip appears here after your salary is recorded. If you have been paid and see nothing, ask your manager to check that the email on your worker record is the one you sign in with.</span></div></div>';
+  h+='<p class="note" style="margin:8px 0 0">Tap a month to download its payslip as a PDF.</p><div class="sec" style="margin-top:14px"><div class="list">'+gs.map(function(g){
+    var last=g.pays.slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"")})[0];
+    return '<button class="item" data-act="payslip" data-m="'+esc(g.key)+'"><span class="ftype">PDF</span><span class="grow"><span class="t1" style="display:block">'+esc(mlabel(g.key))+'</span><span class="t2" style="display:block">'+esc("Paid "+fdate(last.date)+(last.method?" · "+last.method:"")+(g.pays.length>1?" · "+g.pays.length+" payments":""))+'</span></span><b>'+esc(fmt(g.total))+"</b></button>";
+  }).join("")+"</div></div>";
+  return h;
+}
+async function downloadPayslip(wk,key,pays){
+  if(!guard())return;
+  var J=window.jspdf.jsPDF,doc=new J({orientation:"portrait",unit:"pt",format:"a4"}),W=doc.internal.pageSize.getWidth();
+  var logo=document.querySelector(".logo");
+  try{if(logo)doc.addImage(logo.src,"JPEG",40,32,34,50)}catch(e){}
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.setTextColor(18,21,18);doc.text("Hawkeye Africa",88,56);
+  doc.setFont("helvetica","normal");doc.setFontSize(11);doc.setTextColor(78,94,105);doc.text("Payslip",88,74);
+  doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setTextColor(15,110,61);doc.text(pt(mlabel(key)),W-40,56,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(78,94,105);doc.text("Ref. PS-"+pt(wk.workerNo||String(wk.id).slice(0,6))+"-"+key,W-40,72,{align:"right"});
+  doc.setLineWidth(2);doc.setDrawColor(15,110,61);doc.line(40,96,W*0.6,96);doc.setDrawColor(196,30,42);doc.line(W*0.6,96,W-40,96);doc.setLineWidth(0.2);
+  var info=[["Employee",wk.name],["Worker number",wk.workerNo],["Job title",wk.role],["Site",wk.site],["Employment",wk.empType],["Start date",wk.startDate?fdate(wk.startDate):""]].filter(function(r){return r[1]});
+  doc.autoTable({startY:116,body:info.map(function(r){return [pt(r[0]),pt(r[1])]}),theme:"plain",styles:{font:"helvetica",fontSize:10,cellPadding:3,textColor:[18,21,18]},columnStyles:{0:{textColor:[78,94,105],cellWidth:110},1:{fontStyle:"bold"}},margin:{left:40,right:40}});
+  var y=doc.lastAutoTable.finalY+22,total=sum(pays,function(p){return p.amount});
+  var rows=pays.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"")}).map(function(p){return [fdate(p.date),pt(p.desc||"Salary - "+mlabel(key)),pt(p.method),pt(p.ref),nf(p.amount)]});
+  y=tbl(doc,y,["Date paid","Description","Paid by","Reference","Amount (KES)"],rows,["","","","Net pay",nf(total)],[4]);
+  y+=30;doc.setFillColor(10,61,36);doc.roundedRect(40,y,W-80,64,8,8,"F");
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(11);doc.text("Net pay for "+pt(mlabel(key)),60,y+26);
+  doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text(pt(fmt(total)),W-60,y+42,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setTextColor(78,94,105);
+  doc.text(doc.splitTextToSize("The amount shown is the net amount paid to the employee, as recorded in the Hawkeye Management System. Issued "+fdate(today())+". This payslip is computer generated and needs no signature.",W-80),40,y+90);
+  await savePdf(doc,"payslip-"+(wk.workerNo||"staff")+"-"+key+".pdf");
+}
+function staffPayslip(key){
+  var ps=S.pays.filter(function(p){return salMonthKey(p.desc,p.date)===key});
+  if(!ps.length)return;downloadPayslip(ps[0].worker,key,ps);
+}
+function mgrPayslip(eid){
+  var e=byId(S.allExp,eid),w=e&&byId(S.workers,e.workerId);if(!e||!w){toast("Could not find that worker.");return}
+  var key=salMonthKey(e.description,e.date);
+  var ps=S.allExp.filter(function(x){return x.category==="Salary"&&x.status==="approved"&&x.workerId===w.id&&salMonthKey(x.description,x.date)===key}).map(function(x){return {date:x.date,amount:x.amount,method:x.method,ref:x.ref,desc:x.description}});
+  downloadPayslip({id:w.id,name:w.name,workerNo:w.workerNo,role:w.role,site:w.site,empType:w.empType,startDate:w.startDate},key,ps);
+}
+
 /* ---------- install as app ---------- */
 var installEv=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();installEv=e;if(S.me)renderDrawer()});
@@ -1727,6 +1785,8 @@ document.addEventListener("click",function(ev){
   if(a==="pdfb"){downloadBudgetPdf();return}
   if(a==="csvb"){exportBudget();return}
   if(a==="stab"){S.stab=t.dataset.v;render();window.scrollTo(0,0);return}
+  if(a==="payslip"){staffPayslip(t.dataset.m);return}
+  if(a==="payslipx"){mgrPayslip(id);return}
   if(a==="badge"){openBadge(id);return}
   if(a==="bsave"){badgeSave();return}
   if(a==="bpdf"){badgePdf();return}
