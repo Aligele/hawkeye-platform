@@ -194,7 +194,7 @@ details.person summary small { display: block; color: var(--muted); font-size: 1
 .rec-body .sw b { font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: normal; }
 @media (prefers-reduced-motion: no-preference) { .meter > i, .bl-row .t i, .days b { transition: width .3s ease, height .3s ease; } }
 .enum-locked [data-q="interviewer"] { display: none; }
-#map { height: 380px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; z-index: 0; }
+#map { height: 460px; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; z-index: 0; }
 .geo-ok { color: var(--accent); } .geo-bad { color: var(--bad); font-weight: 600; }
 .fl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
 .gate { position: fixed; inset: 0; z-index: 50; background: rgba(15,30,25,.92); display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -298,9 +298,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       <button class="btn ghost" id="mapRefresh" type="button">Refresh</button>
     </div>
     <div id="map"></div>
-    <p class="empty" id="mapNote" style="margin-top:6px">Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. The green arrow on a person shows the direction they are moving, and the dashed amber line points to the ward they are going to. Rings are custom ward GPS fences; the amber outline is the boundary of the ward selected in the fence editor. Locations are shared only while the enumerator has the app open.</p>
+    <p class="empty" id="mapNote" style="margin-top:6px">Switch between Satellite photo and Street map at the top right of the map. Tap a person, or "Show exact place" in the list, to zoom to the exact spot on the photo. The pale circle is the phone&rsquo;s accuracy. Green = seen in the last 10 minutes, amber = within the hour, grey = older. Small dots are interviews. The green arrow on a person shows the direction they are moving, and the dashed amber line points to the ward they are going to. Rings are custom ward GPS fences; the amber outline is the boundary of the ward selected in the fence editor. Locations are shared only while the enumerator has the app open.</p>
     <div class="card" style="margin-top:12px"><h3>Enumerators</h3>
-      <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th><th>Heading</th></tr></thead><tbody id="fieldList"></tbody></table></div>
+      <table class="fl"><thead><tr><th>Name</th><th>Last seen</th><th>Status</th><th>Heading</th><th></th></tr></thead><tbody id="fieldList"></tbody></table></div>
     <div class="card" style="margin-top:12px"><h3>Ward GPS fences</h3>
       <p class="empty" style="margin:4px 0 0">Enumerators can submit for a ward only while their phone is inside its fence. Every ward uses its real boundary by default (a ring around its centre where no boundary file exists). A fence you save here replaces the boundary with a circle; Reset to default restores it.</p>
       <p class="empty" id="noFence" style="margin:6px 0 0"></p>
@@ -1985,12 +1985,15 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
 
   /* ---------- field map (admin) ---------- */
-  var map = null, mapLayer = null, pickMode = false, mapFitted = false, mapTimer = 0, mapProfiles = {};
+  var mapMarkers = {}, map = null, mapLayer = null, pickMode = false, mapFitted = false, mapTimer = 0, mapProfiles = {};
   function ago(ts) { var m = Math.round((Date.now() - ts) / 60000); if (m < 1) return "just now"; if (m < 60) return m + " min ago"; var h = Math.round(m / 60); return h < 48 ? h + " h ago" : Math.round(h / 24) + " days ago"; }
   function initMap() {
     if (map || !window.L) { if (map) setTimeout(function () { map.invalidateSize(); }, 50); return; }
     map = L.map("map").setView([0.52, 35.27], 11);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+    var sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }),
+        street = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap contributors" });
+    sat.addTo(map);
+    L.control.layers({ "Satellite photo": sat, "Street map": street }, null, { position: "topright", collapsed: false }).addTo(map);
     mapLayer = L.layerGroup().addTo(map);
     map.on("click", function (e) { if (!pickMode) return; pickMode = false; $("fcLat").value = e.latlng.lat.toFixed(6); $("fcLng").value = e.latlng.lng.toFixed(6); toast("Centre picked. Set the radius and tap Save fence."); });
     clearInterval(mapTimer); mapTimer = setInterval(function () { if (document.visibilityState === "visible" && !$("view-map").hidden) loadMap(); }, 30000);
@@ -2061,7 +2064,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     var by = {}; pts.forEach(function (p) { (by[p.enumerator_id] = by[p.enumerator_id] || []).push(p); });
     var bounds = [];
     if (map && mapLayer) {
-      mapLayer.clearLayers();
+      mapLayer.clearLayers(); mapMarkers = {};
       var showC = $("fcCounty").value, sw = WBL[$("fcWard").value];
       if (sw && WPOLY[sw.code]) WPOLY[sw.code][1].forEach(function (rg) { var ll = []; for (var q = 0; q < rg.length; q += 2) ll.push([rg[q], rg[q + 1]]); L.polygon(ll, { color: "#C48A14", weight: 2, fillOpacity: 0.08 }).bindTooltip(sw.name + " ward boundary").addTo(mapLayer); bounds.push([sw.lat, sw.lng]); });
       Object.keys(fences).forEach(function (w) { var f = fences[w]; if (f.source !== "admin" && f.county !== showC) return; L.circle([f.lat, f.lng], { radius: f.radius_m, color: f.enabled ? "#0B5D3B" : "#999", weight: 1.5, fillOpacity: 0.05, dashArray: "5 5" }).bindTooltip(w + " fence").addTo(mapLayer); bounds.push([f.lat, f.lng]); });
@@ -2069,8 +2072,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       Object.keys(by).forEach(function (id) {
         var arr = by[id], last = arr[0], nm = (mapProfiles[id] && mapProfiles[id].full_name) || "Unknown", age = Date.now() - Date.parse(last.created_at);
         L.polyline(arr.slice().reverse().map(function (p) { return [p.lat, p.lng]; }), { color: "#4E6E8E", weight: 2, opacity: 0.6 }).addTo(mapLayer);
-        L.circleMarker([last.lat, last.lng], { radius: 9, color: "#fff", weight: 2, fillColor: age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888", fillOpacity: 1 })
-          .bindPopup("<b>" + esc(nm) + "</b><br>" + ago(Date.parse(last.created_at)) + (last.ward ? "<br>Ward: " + esc(last.ward) : "") + "<br>" + esc(trackInfo(arr).text)).bindTooltip(nm, { permanent: true, direction: "top", offset: [0, -8] }).addTo(mapLayer);
+        if (last.accuracy_m > 0 && last.accuracy_m < 2000) L.circle([last.lat, last.lng], { radius: last.accuracy_m, color: "#fff", weight: 1, fillColor: "#1FA463", fillOpacity: 0.15, interactive: false }).addTo(mapLayer);
+        mapMarkers[id] = L.circleMarker([last.lat, last.lng], { radius: 9, color: "#fff", weight: 2, fillColor: age < 600000 ? "#1FA463" : age < 3600000 ? "#C48A14" : "#888", fillOpacity: 1 })
+          .bindPopup("<b>" + esc(nm) + "</b><br>" + ago(Date.parse(last.created_at)) + (last.ward ? "<br>Ward: " + esc(last.ward) : "") + "<br>" + esc(trackInfo(arr).text) +
+            "<br>Exact spot: " + last.lat.toFixed(6) + ", " + last.lng.toFixed(6) + (last.accuracy_m ? " (within " + Math.round(last.accuracy_m) + " m)" : "") +
+            '<br><a href="https://www.google.com/maps?q=' + last.lat + "," + last.lng + '" target="_blank" rel="noopener">Open in Google Maps</a>').bindTooltip(nm, { permanent: true, direction: "top", offset: [0, -8] }).addTo(mapLayer);
         var ti = trackInfo(arr);
         if (ti.dest) {
           L.polyline([[last.lat, last.lng], [ti.dest.lat, ti.dest.lng]], { color: "#C48A14", weight: 2, dashArray: "6 6", opacity: 0.8 }).addTo(mapLayer);
@@ -2090,8 +2096,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         st = f ? (distM(l.lat, l.lng, f.lat, f.lng) <= f.radius_m ? "Inside " + l.ward : "Outside " + l.ward + " (" + fmtDist(distM(l.lat, l.lng, f.lat, f.lng)) + " from centre)") : (l.ward ? "Working in " + l.ward : "Ward not chosen");
       }
       if (arr) hd = trackInfo(arr).text;
-      return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td><td>' + esc(hd) + '</td></tr>';
-    }).join("") || '<tr><td colspan="4">No enumerators yet.</td></tr>';
+      return '<tr><td><span class="dot" style="background:' + dot + '"></span>' + esc(u.full_name) + '</td><td>' + esc(seen) + '</td><td>' + esc(st) + '</td><td>' + esc(hd) + '</td><td>' + (arr ? '<button class="link" data-loc="' + esc(u.id) + '">Show exact place</button>' : "") + '</td></tr>';
+    }).join("") || '<tr><td colspan="5">No enumerators yet.</td></tr>';
     var missing = wards.filter(function (w) { return !fences[w]; }).length, custom = Object.keys(fences).filter(function (w) { return fences[w].source === "admin"; }).length;
     $("noFence").textContent = missing ? missing + " of " + wards.length + " wards have no fence yet. Reload this page to create them." : "All " + wards.length + " wards have a fence (" + custom + " set by you, the rest default).";
   }
@@ -2454,6 +2460,12 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("tab-res").addEventListener("click", function () { showTab("res"); });
     $("tab-map").addEventListener("click", function () { showTab("map"); });
     $("tab-att").addEventListener("click", function () { showTab("att"); });
+    $("fieldList").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-loc]"); if (!b || !map) return;
+      var m = mapMarkers[b.getAttribute("data-loc")]; if (!m) { toast("No location for this person yet."); return; }
+      $("map").scrollIntoView({ behavior: "smooth", block: "center" });
+      map.setView(m.getLatLng(), 19); m.openPopup();
+    });
     $("attDate").addEventListener("change", loadAttendance);
     $("attBlock").addEventListener("change", loadAttendance);
     $("attRefresh").addEventListener("click", loadAttendance);
