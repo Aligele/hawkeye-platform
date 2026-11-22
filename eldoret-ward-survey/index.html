@@ -156,6 +156,26 @@ body.xf-mode .script, body.xf-mode #stop { display: none; }
 .rec { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .rec:last-child { border-bottom: 0; }
 .rec small { color: var(--muted); display: block; }
+.att-sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+.att-sheet h2 { margin: 0; font-size: 18px; }
+.att-sheet .sub { margin: 2px 0 10px; color: var(--muted); font-size: 13px; }
+.att-sheet .tbl { overflow-x: auto; }
+.att-sheet td.na { color: #b3261e; }
+.att-sheet td.sig { min-width: 110px; }
+.att-sheet .foot { margin-top: 18px; font-size: 13px; }
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  .top, #notices, .no-print, #toast, #locGate { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .wrap { max-width: none; padding: 0; }
+  .att-sheet { border: 0; border-radius: 0; padding: 0; margin: 0; background: #fff; color: #000; break-after: page; page-break-after: always; }
+  .att-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .att-sheet .sub, .att-sheet .foot { color: #000; }
+  .att-sheet table { width: 100%; font-size: 12px; }
+  .att-sheet th, .att-sheet td { border: 1px solid #333; padding: 9px 6px; color: #000; }
+  .att-sheet th { background: #eee; }
+  .att-sheet td.na { color: #a00; }
+}
 details.admin { margin-top: 12px; }
 details.admin summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 .tbl { overflow-x: auto; }
@@ -244,6 +264,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <button class="tab" role="tab" id="tab-int" aria-selected="true">Interview</button>
     <button class="tab" role="tab" id="tab-res" aria-selected="false">Results</button>
     <button class="tab" role="tab" id="tab-map" aria-selected="false">Field map</button>
+    <button class="tab" role="tab" id="tab-att" aria-selected="false">Attendance</button>
     <button class="tab" role="tab" id="tab-qn" aria-selected="false">Questionnaire</button>
   </div>
 </div></div>
@@ -296,6 +317,24 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
         <button class="btn ghost" id="fcDel" type="button">Reset to default</button>
       </div>
     </div>
+  </main>
+
+  <!-- ATTENDANCE (admin) -->
+  <main id="view-att" hidden>
+    <div class="filter no-print">
+      <label for="attDate">Date</label>
+      <input type="date" id="attDate" class="inp" style="max-width:170px">
+      <label for="attBlock">Periods</label>
+      <select id="attBlock">
+        <option value="work" selected>Working day, 06:00 to 20:00 (7 sheets)</option>
+        <option value="all">Whole day (12 sheets)</option>
+      </select>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="attRefresh" type="button">Refresh</button>
+      <button class="btn" id="attPrint" type="button">Print</button>
+    </div>
+    <p class="empty no-print" style="margin-top:6px">One sheet for every two hours (East Africa Time). Each sheet lists every active enumerator with the email they log in with and the ward their phone location was in during that period. Enumerators with no location recorded in the period show as "No login recorded". Print gives one sheet per page.</p>
+    <div id="attSheets"></div>
   </main>
 
   <!-- QUESTIONNAIRE (admin) -->
@@ -1892,13 +1931,58 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   function toast(m) { var t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
   function showTab(which) {
     if (which !== "int" && !isAdmin) which = "int";
-    ["int", "res", "map", "qn"].forEach(function (k) { $("view-" + k).hidden = k !== which; $("tab-" + k).setAttribute("aria-selected", k === which ? "true" : "false"); });
+    ["int", "res", "map", "att", "qn"].forEach(function (k) { $("view-" + k).hidden = k !== which; $("tab-" + k).setAttribute("aria-selected", k === which ? "true" : "false"); });
     if (which === "res") { renderResults(); loadRows(); }
     if (which === "map") { initMap(); loadMap(); }
+    if (which === "att") { loadAttendance(); }
     if (which === "qn") { loadQuestionnaires(); }
     window.scrollTo(0, 0);
   }
 
+
+  /* ---------- attendance sheets (admin) ----------
+     One printable sheet per two-hour period (East Africa Time). Attendance is taken from the phone locations
+     the enumerator app already logs while it is open: no location in a period means "No login recorded". */
+  var attUsers = null;
+  function attTime(ms) { return new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Nairobi" }); }
+  function attHH(h) { return (h < 10 ? "0" : "") + h + ":00"; }
+  async function loadAttendance() {
+    if (!isAdmin || !sb) return;
+    var box = $("attSheets");
+    if (!$("attDate").value) $("attDate").value = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
+    var day = $("attDate").value, mode = $("attBlock").value;
+    box.innerHTML = '<p class="empty">Loading...</p>';
+    try {
+      var start = Date.parse(day + "T00:00:00+03:00"), end = start + 864e5;
+      if (isNaN(start)) { box.innerHTML = '<p class="empty">Choose a date.</p>'; return; }
+      var pr = await sb.from("profiles").select("id,full_name,role,active");
+      if (pr.error) throw pr.error;
+      if (!attUsers) { try { var d = await callAdmin({ action: "list" }); attUsers = {}; d.users.forEach(function (u) { attUsers[u.id] = u.login || ""; }); } catch (e) { attUsers = {}; } }
+      var roster = (pr.data || []).filter(function (x) { return x.role === "enumerator" && x.active; }).sort(function (a, b) { return a.full_name.localeCompare(b.full_name); });
+      var pts = await fetchAll(function () { return sb.from("locations").select("enumerator_id,created_at,ward").gte("created_at", new Date(start).toISOString()).lt("created_at", new Date(end).toISOString()).order("created_at", { ascending: false }); });
+      var by = {};
+      pts.forEach(function (p) {
+        var t = Date.parse(p.created_at), b = Math.floor((t - start) / 72e5), k = b + "|" + p.enumerator_id, c = by[k];
+        if (!c) c = by[k] = { n: 0, first: t, last: t, ward: "" };
+        c.n++; if (t < c.first) c.first = t; if (t > c.last) c.last = t;
+        if (!c.ward && p.ward) c.ward = p.ward;   /* pts are newest first, so this is the latest named ward */
+      });
+      var from = mode === "work" ? 3 : 0, to = mode === "work" ? 10 : 12, h = "";
+      for (var b = from; b < to; b++) {
+        var rows = roster.map(function (u, i) {
+          var c = by[b + "|" + u.id], em = attUsers[u.id] || "";
+          var cells = c ? "<td>" + esc(c.ward || "GPS only") + "</td><td>" + attTime(c.first) + "</td><td>" + attTime(c.last) + "</td><td>" + c.n + "</td>" : '<td class="na">No login recorded</td><td></td><td></td><td></td>';
+          return "<tr><td>" + (i + 1) + "</td><td>" + esc(u.full_name) + "</td><td>" + esc(em) + "</td>" + cells + '<td class="sig"></td></tr>';
+        }).join("");
+        h += '<section class="att-sheet"><h2>Enumerator Attendance</h2><p class="sub">Ward Voter Survey &middot; Hawkeye Africa</p>' +
+          "<p><b>Date:</b> " + esc(day) + " &nbsp; <b>Period:</b> " + attHH(b * 2) + " to " + attHH((b * 2 + 2) % 24) + " (EAT)</p>" +
+          '<div class="tbl"><table><thead><tr><th>#</th><th>Enumerator</th><th>Email (login)</th><th>Location logged in from</th><th>First seen</th><th>Last seen</th><th>Pings</th><th>Signature</th></tr></thead><tbody>' +
+          (rows || '<tr><td colspan="8">No active enumerators.</td></tr>') + '</tbody></table></div>' +
+          '<p class="foot">Supervisor: ____________________ &nbsp; Signature: ____________ &nbsp; Time: ______</p></section>';
+      }
+      box.innerHTML = h;
+    } catch (e) { box.innerHTML = '<p class="empty">Could not load attendance.</p>'; }
+  }
 
   /* ---------- field map (admin) ---------- */
   var map = null, mapLayer = null, pickMode = false, mapFitted = false, mapTimer = 0, mapProfiles = {};
@@ -2369,6 +2453,11 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("tab-int").addEventListener("click", function () { showTab("int"); });
     $("tab-res").addEventListener("click", function () { showTab("res"); });
     $("tab-map").addEventListener("click", function () { showTab("map"); });
+    $("tab-att").addEventListener("click", function () { showTab("att"); });
+    $("attDate").addEventListener("change", loadAttendance);
+    $("attBlock").addEventListener("change", loadAttendance);
+    $("attRefresh").addEventListener("click", loadAttendance);
+    $("attPrint").addEventListener("click", function () { window.print(); });
     $("wardFilter").addEventListener("change", function (e) { wardFilter = e.target.value; renderResults(); });
     $("exportBtn").addEventListener("click", exportCsv);
     $("jsonBtn").addEventListener("click", exportJson);
