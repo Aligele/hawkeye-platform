@@ -255,6 +255,21 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <input class="inp" id="liPass" name="password" type="password" autocomplete="current-password" required>
     <button class="btn" type="submit" id="liBtn">Sign in</button>
     <div id="liErr" class="banner bad" hidden></div>
+    <p class="empty" style="margin-top:14px">New here? <button class="link" id="showSignup" type="button">Create an account</button>. The survey admin approves it before you can start.</p>
+  </form>
+  <form id="signupForm" autocomplete="on" hidden>
+    <label for="suName">Full name</label>
+    <input class="inp" id="suName" name="name" autocomplete="name" required maxlength="80">
+    <label for="suEmail">Email</label>
+    <input class="inp" id="suEmail" name="email" type="email" autocomplete="email" autocapitalize="none" required maxlength="120">
+    <label for="suNote">Who are you? (county or ward you work in, or who sent you)</label>
+    <input class="inp" id="suNote" name="note" maxlength="200" placeholder="e.g. Bungoma enumerator, sent by John">
+    <label for="suPass">Choose a password (at least 8 characters)</label>
+    <input class="inp" id="suPass" name="new-password" type="password" autocomplete="new-password" minlength="8" required>
+    <input id="suWeb" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+    <button class="btn" type="submit" id="suBtn">Create account</button>
+    <div id="suMsg" class="banner bad" hidden></div>
+    <p class="empty" style="margin-top:14px"><button class="link" id="showSignin" type="button">Back to sign in</button></p>
   </form>
 </section>
 <div class="top"><div class="top-in">
@@ -389,6 +404,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     <div id="results"></div>
     <details class="admin" id="adminBox" hidden>
       <summary>Admin: team logins</summary>
+      <p class="banner ok" id="pendingNote" hidden style="margin:8px 0"></p>
       <p class="empty" style="margin:8px 0">Create a login for each enumerator. They see only the questionnaire and never the results.</p>
       <table class="team"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody id="teamList"></tbody></table>
       <div class="teamform">
@@ -2460,6 +2476,9 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("tab-res").addEventListener("click", function () { showTab("res"); });
     $("tab-map").addEventListener("click", function () { showTab("map"); });
     $("tab-att").addEventListener("click", function () { showTab("att"); });
+    $("showSignup").addEventListener("click", function () { showSignupForm(true); });
+    $("showSignin").addEventListener("click", function () { showSignupForm(false); });
+    $("signupForm").addEventListener("submit", doSignUp);
     $("fieldList").addEventListener("click", function (e) {
       var b = e.target.closest("[data-loc]"); if (!b || !map) return;
       var m = mapMarkers[b.getAttribute("data-loc")]; if (!m) { toast("No location for this person yet."); return; }
@@ -2511,6 +2530,15 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       var id = b.getAttribute("data-id");
       try {
         if (b.getAttribute("data-act") === "toggle") { await callAdmin({ action: "set_active", id: id, active: b.getAttribute("data-on") === "1" }); loadUsers(); }
+        else if (b.getAttribute("data-act") === "approve") {
+          var rl = b.getAttribute("data-role");
+          if (rl === "admin" && !window.confirm("Make this person an admin? Admins can see all results and manage logins.")) return;
+          await callAdmin({ action: "approve", id: id, role: rl }); toast("Approved as " + rl + "."); loadUsers();
+        }
+        else if (b.getAttribute("data-act") === "reject") {
+          if (!window.confirm("Reject and delete this sign-up?")) return;
+          await callAdmin({ action: "reject", id: id }); toast("Sign-up rejected."); loadUsers();
+        }
         else if (b.getAttribute("data-act") === "reset") {
           var pw = window.prompt("New password for this person (at least 8 characters)"); if (!pw) return;
           await callAdmin({ action: "reset_password", id: id, password: pw }); toast("Password reset.");
@@ -2526,7 +2554,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
 
   function showLogin(msg) {
     document.body.classList.add("auth-out"); $("loginView").hidden = false;
-    var er = $("liErr"); er.hidden = !msg; er.textContent = msg || "";
+    var er = $("liErr"); er.className = "banner bad"; er.hidden = !msg; er.textContent = msg || "";
   }
   async function doSignIn(e) {
     e.preventDefault();
@@ -2540,6 +2568,23 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     } catch (err) { showLogin("Could not sign in. Check the connection and try again."); }
     finally { btn.disabled = false; btn.textContent = "Sign in"; }
   }
+  function showSignupForm(on) {
+    $("signupForm").hidden = !on; $("signinForm").hidden = on;
+    var m = $("suMsg"); m.hidden = true; m.textContent = "";
+    var er = $("liErr"); er.hidden = true;
+  }
+  async function doSignUp(e) {
+    e.preventDefault();
+    var btn = $("suBtn"), m = $("suMsg"); btn.disabled = true; btn.textContent = "Creating...";
+    try {
+      var r = await sb.functions.invoke("signup", { body: { full_name: $("suName").value, email: $("suEmail").value, note: $("suNote").value, password: $("suPass").value, website: $("suWeb").value } });
+      if (r.error) { var msg = "Could not create the account. Try again."; try { var j = await r.error.context.json(); msg = j.error || msg; } catch (x) {} m.className = "banner bad"; m.textContent = msg; m.hidden = false; return; }
+      $("suPass").value = "";
+      showSignupForm(false);
+      var er = $("liErr"); er.className = "banner ok"; er.textContent = "Account created. Your account is waiting for approval by the survey admin. You can sign in once they approve it."; er.hidden = false;
+    } catch (err) { m.className = "banner bad"; m.textContent = "Could not reach the server. Check the connection and try again."; m.hidden = false; }
+    finally { btn.disabled = false; btn.textContent = "Create account"; }
+  }
   async function callAdmin(body) {
     var r = await sb.functions.invoke("manage-users", { body: body });
     if (r.error) { var msg = r.error.message; try { var j = await r.error.context.json(); msg = j.error || msg; } catch (e) {} throw new Error(msg); }
@@ -2548,7 +2593,17 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   async function loadUsers() {
     try {
       var d = await callAdmin({ action: "list" });
-      $("teamList").innerHTML = d.users.map(function (u) {
+      var waiting = d.users.filter(function (u) { return u.pending; });
+      $("pendingNote").hidden = !waiting.length;
+      $("pendingNote").textContent = waiting.length ? waiting.length + (waiting.length === 1 ? " person is" : " people are") + " waiting for approval in the list below." : "";
+      if (waiting.length) { $("adminBox").open = true; if (!window._pendingToasted) { window._pendingToasted = true; toast(waiting.length + (waiting.length === 1 ? " sign-up is" : " sign-ups are") + " waiting. See Results, Admin: team logins."); } }
+      $("teamList").innerHTML = d.users.slice().sort(function (a, b) { return (b.pending ? 1 : 0) - (a.pending ? 1 : 0); }).map(function (u) {
+        if (u.pending) {
+          return '<tr><td><b>' + esc(u.full_name) + '</b> <span class="pill">Waiting</span><br><span class="empty">' + esc(u.login) + (u.note ? " &middot; " + esc(u.note) : "") + '</span></td><td>' + esc(u.login) + '</td><td>Waiting</td><td>' +
+            '<button class="link" data-act="approve" data-role="enumerator" data-id="' + esc(u.id) + '">Approve as enumerator</button> ' +
+            '<button class="link" data-act="approve" data-role="admin" data-id="' + esc(u.id) + '">Approve as admin</button> ' +
+            '<button class="link" data-act="reject" data-id="' + esc(u.id) + '">Reject</button></td></tr>';
+        }
         return '<tr><td>' + esc(u.full_name) + (u.active ? "" : " (disabled)") + '</td><td>' + esc(u.login) + '</td><td>' + esc(u.role) + '</td><td>' +
           (u.id === uid ? "" : '<button class="link" data-act="toggle" data-id="' + esc(u.id) + '" data-on="' + (u.active ? "0" : "1") + '">' + (u.active ? "Disable" : "Enable") + '</button>') +
           '<button class="link" data-act="reset" data-id="' + esc(u.id) + '">Reset password</button></td></tr>';
@@ -2574,8 +2629,8 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     } catch (e) { $("notices").innerHTML = '<div class="banner bad">Could not load saved interviews. Reload the page to try again.</div>'; }
   }
   async function boot(user) {
-    var pr = await sb.from("profiles").select("full_name,role,active").eq("id", user.id).maybeSingle();
-    if (pr.error || !pr.data || !pr.data.active) { try { await sb.auth.signOut(); } catch (e) {} showLogin("This account is not active. Ask the survey admin."); return; }
+    var pr = await sb.from("profiles").select("full_name,role,active,pending").eq("id", user.id).maybeSingle();
+    if (pr.error || !pr.data || !pr.data.active) { try { await sb.auth.signOut(); } catch (e) {} showLogin(pr.data && pr.data.pending ? "Your account is waiting for approval by the survey admin. Try again after they approve it." : "This account is not active. Ask the survey admin."); return; }
     uid = user.id; db = sb; canWrite = true; isAdmin = pr.data.role === "admin"; lockedName = pr.data.full_name;
     $("loginView").hidden = true; document.body.classList.remove("auth-out");
     $("who").textContent = lockedName + (isAdmin ? " (admin)" : "");

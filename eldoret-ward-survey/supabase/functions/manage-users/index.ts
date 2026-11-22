@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   const action = body.action;
 
   if (action === "list") {
-    const { data: ps, error } = await service.from("profiles").select("id,full_name,role,active,created_at").order("created_at");
+    const { data: ps, error } = await service.from("profiles").select("id,full_name,role,active,pending,note,created_at").order("created_at");
     if (error) return json({ error: error.message }, 500);
     const { data: au } = await service.auth.admin.listUsers({ perPage: 1000 });
     const em: Record<string, string> = {}; (au?.users ?? []).forEach((x) => { em[x.id] = x.email ?? ""; });
@@ -57,6 +57,24 @@ Deno.serve(async (req) => {
     const { error } = await service.from("profiles").update({ active }).eq("id", id);
     if (error) return json({ error: error.message }, 500);
     await service.auth.admin.updateUserById(id, { ban_duration: active ? "none" : "876000h" });
+    return json({ ok: true });
+  }
+
+  if (action === "approve") {
+    const id = String(body.id ?? "");
+    const role = body.role === "admin" ? "admin" : "enumerator";
+    const { error } = await service.from("profiles").update({ role, active: true, pending: false }).eq("id", id);
+    if (error) return json({ error: error.message }, 500);
+    await service.auth.admin.updateUserById(id, { ban_duration: "none" });
+    return json({ ok: true });
+  }
+
+  if (action === "reject") {
+    const id = String(body.id ?? "");
+    const { data: t } = await service.from("profiles").select("pending").eq("id", id).maybeSingle();
+    if (!t?.pending) return json({ error: "Only waiting sign-ups can be rejected here" }, 400);
+    const { error } = await service.auth.admin.deleteUser(id);
+    if (error) return json({ error: error.message }, 500);
     return json({ ok: true });
   }
 

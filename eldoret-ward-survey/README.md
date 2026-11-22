@@ -47,3 +47,7 @@ A line starting with `#` names a section.
 Questions can also be imported from a file in the editor: Word (`.docx`), text (`.txt`, `.md`), CSV or JSON. Word and text files use the
 paste format above. CSV needs a header row with `Section, Question, Type, Required, Options, Max` (options separated by `|`;
 type is single, multi, text or long); the editor has a template to download. JSON is a list of questions, or `{ "title", "questions" }`.
+
+## Open sign-up with admin approval (migration 005)
+
+The sign-in screen has **Create an account**. Anyone can register with a name, email and password, but the account is created inactive and marked *waiting*: it can read and save nothing until an admin approves it. Admins see waiting people at the top of **Results > Admin: team logins** and choose **Approve as enumerator**, **Approve as admin** or **Reject** (which deletes the sign-up). Run `supabase/migrations/005_open_signup.sql`, deploy `supabase/functions/signup` with **verify JWT off** (the publishable key is not a JWT) and redeploy `manage-users`.
