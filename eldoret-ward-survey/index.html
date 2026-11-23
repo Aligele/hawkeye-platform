@@ -176,6 +176,18 @@ body.xf-mode .script, body.xf-mode #stop { display: none; }
   .att-sheet th { background: #eee; }
   .att-sheet td.na { color: #a00; }
 }
+#present { position: fixed; inset: 0; z-index: 9000; background: var(--bg); display: flex; flex-direction: column; }
+#present[hidden] { display: none; }
+.pr-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; color: var(--muted); font-size: 14px; }
+.pr-stage { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 8px 4vw; }
+.pr-slide { width: min(980px, 100%); margin: auto; }
+.pr-slide .card { margin: 0; }
+.pr-title { text-align: center; }
+.pr-title h1 { font-family: var(--font-display); font-size: 40px; margin: 0 0 6px; letter-spacing: -0.02em; }
+.pr-title p { color: var(--muted); font-size: 18px; margin: 4px 0 24px; }
+.pr-title .tiles { grid-template-columns: repeat(3, 1fr); text-align: center; }
+.pr-nav { display: flex; justify-content: center; gap: 12px; padding: 12px 18px 18px; }
+@media (max-width: 640px) { .pr-hint { display: none; } }
 details.admin { margin-top: 12px; }
 details.admin summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 .tbl { overflow-x: auto; }
@@ -334,6 +346,13 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     </div>
   </main>
 
+  <!-- PRESENTATION MODE (admin) -->
+  <div id="present" hidden role="dialog" aria-label="Presentation">
+    <div class="pr-top"><span id="prCount"></span><span class="pr-hint">Arrow keys or swipe to move, Esc to close</span><button class="btn ghost small" id="prClose" type="button">Close</button></div>
+    <div class="pr-stage" id="prStage"></div>
+    <div class="pr-nav"><button class="btn ghost" id="prPrev" type="button">&larr; Back</button><button class="btn" id="prNext" type="button">Next &rarr;</button></div>
+  </div>
+
   <!-- ATTENDANCE (admin) -->
   <main id="view-att" hidden>
     <div class="filter no-print">
@@ -397,6 +416,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
       <label for="wardFilter">Show</label>
       <select id="wardFilter"><option value="">All of Kenya</option></select>
       <span class="spacer"></span>
+      <button class="btn" id="presentBtn" type="button">Present</button>
       <button class="btn ghost" id="reportBtn" type="button">Download report (PDF)</button>
       <button class="btn ghost" id="exportBtn" type="button">Download data (CSV)</button>
       <button class="btn ghost" id="jsonBtn" type="button">Download data (JSON)</button>
@@ -1956,6 +1976,63 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
   }
 
 
+  /* ---------- presentation mode (admin) ----------
+     Turns the Results cards into full-screen slides. Only summary cards are used: the card that lists each person
+     approached and the interviewer table are left out so individual answers are never shown on a screen. */
+  var prSlides = [], prIdx = 0;
+  function prBuild() {
+    var list = rows.filter(inFilter), nonDone = contacts.filter(inFilter);
+    var wset = {}; list.forEach(function (r) { wset[r.ward] = 1; });
+    var title = '<div class="pr-slide pr-title"><h1>Ward Voter Survey</h1><p>' + esc(filterLabel()) + " &middot; " + new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) + '</p>' +
+      '<div class="tiles"><div class="tile"><b>' + list.length + '</b><span>Interviews completed</span></div><div class="tile"><b>' + Object.keys(wset).length + '</b><span>Wards covered</span></div><div class="tile"><b>' + (list.length + nonDone.length) + '</b><span>People approached</span></div></div></div>';
+    var out = [title], skip = /^(Everyone approached|Interviewers)$/;
+    var cards = $("results").querySelectorAll(".card");
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i], h = c.querySelector("h3"), name = h ? h.textContent.trim() : "";
+      if (skip.test(name) || c.querySelector("details") || c.parentNode.closest(".card")) continue;
+      out.push('<div class="pr-slide">' + c.outerHTML + "</div>");
+    }
+    return out;
+  }
+  function prShow() {
+    var st = $("prStage"), w = Math.max(1, Math.min(2.2, window.innerWidth / 900));
+    st.innerHTML = prSlides[prIdx];
+    var sl = st.firstChild; if (sl && sl.style && "zoom" in sl.style) sl.style.zoom = String(w);
+    st.scrollTop = 0;
+    $("prCount").textContent = (prIdx + 1) + " of " + prSlides.length;
+    $("prPrev").disabled = prIdx === 0; $("prNext").disabled = prIdx === prSlides.length - 1;
+  }
+  function prOpen() {
+    if (!isAdmin) return;
+    renderResults();
+    prSlides = prBuild(); prIdx = 0;
+    if (prSlides.length < 2) toast("Nothing to present yet. Save an interview first.");
+    $("present").hidden = false; prShow();
+    var el = document.documentElement; if (el.requestFullscreen) { try { el.requestFullscreen().catch(function () {}); } catch (e) {} }
+  }
+  function prClose() {
+    $("present").hidden = true;
+    if (document.fullscreenElement && document.exitFullscreen) { try { document.exitFullscreen(); } catch (e) {} }
+  }
+  function prMove(d) { var n = Math.max(0, Math.min(prSlides.length - 1, prIdx + d)); if (n !== prIdx) { prIdx = n; prShow(); } }
+  function bindPresent() {
+    $("presentBtn").addEventListener("click", prOpen);
+    $("prClose").addEventListener("click", prClose);
+    $("prPrev").addEventListener("click", function () { prMove(-1); });
+    $("prNext").addEventListener("click", function () { prMove(1); });
+    document.addEventListener("keydown", function (e) {
+      if ($("present").hidden) return;
+      if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); prMove(1); }
+      else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prMove(-1); }
+      else if (e.key === "Escape") prClose();
+    });
+    var sx = null;
+    $("prStage").addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; }, { passive: true });
+    $("prStage").addEventListener("touchend", function (e) { if (sx == null) return; var dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 60) prMove(dx < 0 ? 1 : -1); }, { passive: true });
+    window.addEventListener("resize", function () { if (!$("present").hidden) prShow(); });
+    document.addEventListener("fullscreenchange", function () { if (!document.fullscreenElement && !$("present").hidden) $("present").hidden = true; });
+  }
+
   /* ---------- attendance sheets (admin) ----------
      One printable sheet per two-hour period (East Africa Time). Attendance is taken from the phone locations
      the enumerator app already logs while it is open: no location in a period means "No login recorded". */
@@ -2476,6 +2553,7 @@ body.auth-out .top, body.auth-out .wrap { display: none; }
     $("tab-res").addEventListener("click", function () { showTab("res"); });
     $("tab-map").addEventListener("click", function () { showTab("map"); });
     $("tab-att").addEventListener("click", function () { showTab("att"); });
+    bindPresent();
     $("showSignup").addEventListener("click", function () { showSignupForm(true); });
     $("showSignin").addEventListener("click", function () { showSignupForm(false); });
     $("signupForm").addEventListener("submit", doSignUp);
